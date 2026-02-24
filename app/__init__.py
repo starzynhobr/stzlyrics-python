@@ -1,0 +1,2 @@
+"""STZLyrics Overlay application package."""
+

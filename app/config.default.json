@@ -1,0 +1,50 @@
+{
+  "font": {
+    "family": "Segoe UI",
+    "size": 28,
+    "color": "#FFFFFF",
+    "track_size": 12,
+    "track_color": "#C8C8C8",
+    "shadow": {
+      "enabled": true,
+      "color": "#000000",
+      "offset_x": 1,
+      "offset_y": 1
+    }
+  },
+  "overlay": {
+    "width": 960,
+    "height": 84,
+    "padding_x": 18,
+    "padding_y": 8,
+    "click_through": false,
+    "snap_to_taskbar": true,
+    "snap_threshold": 20,
+    "always_on_top": true,
+    "layout_preset": "detailed",
+    "positions": {}
+  },
+  "lyrics": {
+    "offset_seconds": 0.0,
+    "update_interval_ms": 300,
+    "fallback_unsynced_text": "Sem letra sincronizada",
+    "language": "PT-BR"
+  },
+  "cache": {
+    "max_entries": 100
+  },
+  "network": {
+    "lrclib_timeout_connect": 3.0,
+    "lrclib_timeout_read": 20.0,
+    "lrclib_max_retries": 2,
+    "lrclib_backoff_base_seconds": 0.6
+  },
+  "clock": {
+    "ui_timer_ms": 80,
+    "seek_threshold_s": 1.2,
+    "enable_soft_correction": false,
+    "soft_correction_gain": 0.15,
+    "soft_correction_clamp_s": 0.8,
+    "debug_clock_overlay": false
+  }
+}
