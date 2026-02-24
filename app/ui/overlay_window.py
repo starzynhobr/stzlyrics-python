@@ -3,14 +3,14 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from PySide6.QtCore import QPoint, QRect, Qt, Signal
+from PySide6.QtCore import QPoint, QRect, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QGuiApplication, QMouseEvent, QPainter
 from PySide6.QtWidgets import QWidget
 
 from app.config import AppConfig
 from app.layout_presets import build_layout_render_model
 from app.ui.color_utils import qcolor_from_rgba_hex
-from app.ui.windows_api import WinRect, set_click_through, snap_position
+from app.ui.windows_api import WinRect, set_click_through, set_window_topmost, snap_position
 
 
 logger = logging.getLogger("stzlyrics_overlay.overlay")
@@ -63,6 +63,10 @@ class OverlayWindow(QWidget):
         self._shadow_color = QColor(0, 0, 0, 255)
         self._layout_model = build_layout_render_model("detailed")
         self._debug_clock_overlay_enabled = False
+        self._always_on_top_enabled = bool(config.overlay.always_on_top)
+        self._topmost_guard_timer = QTimer(self)
+        self._topmost_guard_timer.setInterval(250)
+        self._topmost_guard_timer.timeout.connect(self._topmost_guard_tick)
 
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
@@ -73,6 +77,7 @@ class OverlayWindow(QWidget):
         self._config = config
         self._click_through = bool(config.overlay.click_through)
         self._snap_enabled = bool(config.overlay.snap_to_taskbar)
+        self._always_on_top_enabled = bool(config.overlay.always_on_top)
         self.apply_layout_preset(getattr(self._config.overlay, "layout_preset", "detailed"))
         self._debug_clock_overlay_enabled = bool(getattr(self._config.clock, "debug_clock_overlay", False))
         self._track_color = _safe_color(self._config.font.track_color, "#C8C8C8FF")
@@ -82,6 +87,8 @@ class OverlayWindow(QWidget):
         self.resize(int(config.overlay.width), int(config.overlay.height))
         self.update()
         self.apply_click_through()
+        self._ensure_topmost_if_needed()
+        self._sync_topmost_guard_timer()
 
     def apply_layout_preset(self, preset: str) -> None:
         self._layout_model = build_layout_render_model(preset)
@@ -168,6 +175,31 @@ class OverlayWindow(QWidget):
         except Exception:
             hwnd = 0
         set_click_through(hwnd, self._click_through)
+        self._ensure_topmost_if_needed()
+
+    def _ensure_topmost_if_needed(self) -> None:
+        if not self._always_on_top_enabled:
+            return
+        if not self.isVisible():
+            return
+        try:
+            hwnd = int(self.winId())
+        except Exception:
+            hwnd = 0
+        # Force a z-order "bump" so the window is reinserted at the top of the
+        # topmost stack after shell/taskbar interactions.
+        self.raise_()
+        set_window_topmost(hwnd, True, force_reorder=True)
+
+    def _topmost_guard_tick(self) -> None:
+        self._ensure_topmost_if_needed()
+
+    def _sync_topmost_guard_timer(self) -> None:
+        should_run = self._always_on_top_enabled and self.isVisible()
+        if should_run and (not self._topmost_guard_timer.isActive()):
+            self._topmost_guard_timer.start()
+        if (not should_run) and self._topmost_guard_timer.isActive():
+            self._topmost_guard_timer.stop()
 
     def move_default_near_taskbar(self) -> None:
         screen = QGuiApplication.primaryScreen()
@@ -269,6 +301,7 @@ class OverlayWindow(QWidget):
             payload = self._build_position_payload()
             if payload is not None:
                 self.position_committed.emit(payload)
+            self._ensure_topmost_if_needed()
             event.accept()
             return
         super().mouseReleaseEvent(event)
@@ -276,6 +309,13 @@ class OverlayWindow(QWidget):
     def showEvent(self, event) -> None:  # noqa: N802
         super().showEvent(event)
         self.apply_click_through()
+        self._sync_topmost_guard_timer()
+        self._ensure_topmost_if_needed()
+        QTimer.singleShot(100, self._ensure_topmost_if_needed)
+
+    def hideEvent(self, event) -> None:  # noqa: N802
+        super().hideEvent(event)
+        self._sync_topmost_guard_timer()
 
     def paintEvent(self, event) -> None:  # noqa: N802
         painter = QPainter(self)

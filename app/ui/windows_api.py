@@ -11,6 +11,12 @@ IS_WINDOWS = sys.platform.startswith("win")
 GWL_EXSTYLE = -20
 WS_EX_LAYERED = 0x00080000
 WS_EX_TRANSPARENT = 0x00000020
+HWND_TOPMOST = -1
+HWND_NOTOPMOST = -2
+SWP_NOSIZE = 0x0001
+SWP_NOMOVE = 0x0002
+SWP_NOACTIVATE = 0x0010
+SWP_SHOWWINDOW = 0x0040
 
 ABM_GETTASKBARPOS = 0x00000005
 
@@ -69,6 +75,21 @@ def set_click_through(hwnd: int, enabled: bool) -> None:
         return
 
 
+def set_window_topmost(hwnd: int, enabled: bool, *, force_reorder: bool = False) -> None:
+    if not IS_WINDOWS or not hwnd:
+        return
+    try:
+        flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW
+        if enabled and force_reorder:
+            user32.SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags)
+            user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags)
+            return
+        insert_after = HWND_TOPMOST if enabled else HWND_NOTOPMOST
+        user32.SetWindowPos(hwnd, insert_after, 0, 0, 0, 0, flags)
+    except Exception:
+        return
+
+
 def get_taskbar_rect() -> WinRect | None:
     if not IS_WINDOWS:  # pragma: no cover
         return None
@@ -123,4 +144,3 @@ def snap_position(
                         new_x = target_x
 
     return new_x, new_y
-
