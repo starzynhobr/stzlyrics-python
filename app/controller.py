@@ -13,6 +13,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QApplication
 
 from app.config import AppConfig, AppPaths, load_config, save_config
+from app.i18n import tr_ui
 from app.services.cache import LyricsCache, build_track_cache_key
 from app.services.lrclib_client import LrclibClient, LrclibResult
 from app.services.lrclib_client import (
@@ -33,7 +34,6 @@ if "--debug" in sys.argv:
 TRACK_CHANGE_DEBOUNCE_MS = 350
 FAILURE_HOLD_MS = 2500
 GOOD_LINE_FRESH_SECONDS = 6.0
-DEFAULT_NO_SYNCED_TEXT = "Sem letra sincronizada para esta música."
 TRANSIENT_RETRY_DELAY_MS = 5000
 TIMESTAMP_IN_TEXT_RE = re.compile(r"\[(\d{1,2}:\d{2}(?:\.\d{1,3})?)\]")
 CLOCK_DEBUG_SAMPLE_SECONDS = 0.5
@@ -402,16 +402,26 @@ class AppController(QObject):
             self.tray.quit_requested.connect(app.quit)
 
         self._apply_clock_config()
+        self._apply_ui_language()
+
+    def _ui_language(self) -> str:
+        return str(getattr(self.config.lyrics, "language", "PT-BR") or "PT-BR")
+
+    def _tr(self, key: str, **kwargs) -> str:
+        return tr_ui(self._ui_language(), key, **kwargs)
+
+    def _apply_ui_language(self) -> None:
+        self.tray.set_language(self._ui_language())
 
     def start(self) -> None:
         self._started = True
         self.overlay.restore_position()
         self.overlay.show()
         self.tray.show()
-        self.tray.set_tooltip("STZLyrics Overlay")
+        self.tray.set_tooltip(self._tr("app_name"))
         self.overlay.set_status_hint("")
         self.overlay.set_clock_debug_text("")
-        self.overlay.set_lyric_text("Aguardando música...")
+        self.overlay.set_lyric_text(self._tr("overlay_waiting_music"))
         self._ui_clock_timer.start()
         self.media_service.start()
 
@@ -433,8 +443,8 @@ class AppController(QObject):
         self.logger.warning(message)
         if "winsdk" in message.lower():
             self.overlay.set_status_hint("")
-            self.overlay.set_lyric_text("winsdk não instalado")
-        self.tray.set_tooltip(f"STZLyrics Overlay - {message}")
+            self.overlay.set_lyric_text(self._tr("overlay_winsdk_not_installed"))
+        self.tray.set_tooltip(self._tr("tray_tooltip_error", app_name=self._tr("app_name"), message=message))
 
     def _on_media_state(self, state_obj: object) -> None:
         if not isinstance(state_obj, MediaState):
@@ -469,7 +479,7 @@ class AppController(QObject):
             )
         self._log_clock_update_debug(state, clock_update)
         self._refresh_ui_from_media_state(force=True, source="media_state")
-        self.tray.set_tooltip(state.display_track or "STZLyrics Overlay")
+        self.tray.set_tooltip(state.display_track or self._tr("app_name"))
 
         if not state.is_active:
             self.logger.debug("Media inactive: clearing track state")
@@ -488,12 +498,12 @@ class AppController(QObject):
                 self._clear_paused_lyric_latch("media_inactive")
                 self._clear_paused_position_latch("media_inactive")
                 self._last_lyric_line = ""
-                self.overlay.set_lyric_text("Nenhuma mídia ativa")
+                self.overlay.set_lyric_text(self._tr("overlay_no_media_active"))
             return
 
         # Ignore transients while metadata is incomplete; GSMTC commonly flickers during track changes.
         if not self._is_fetchable_track(state):
-            self.overlay.set_status_hint("Aguardando metadados...")
+            self.overlay.set_status_hint(self._tr("overlay_waiting_metadata"))
             return
 
         if state.track_key != self._current_track_key:
@@ -713,7 +723,9 @@ class AppController(QObject):
         )
         self._active_request = request
         self._fetch_inflight = True
-        self.overlay.set_status_hint(f"Buscando letra... tentativa 1/{self._total_attempts()}")
+        self.overlay.set_status_hint(
+            self._tr("status_fetch_attempt", attempt=1, total=self._total_attempts())
+        )
         self.logger.info(
             "Lyrics request start request_id=%s track_seq=%s track_key=%r",
             request.request_id,
@@ -789,7 +801,7 @@ class AppController(QObject):
                 "found": False,
                 "lyrics_text": "",
                 "is_synced": False,
-                "message": "Falha temporária ao buscar letra",
+                "message": self._tr("msg_temp_lyrics_fetch_fail"),
                 "attempts": 0,
                 "transient_error": True,
                 "error_code": "worker_exception",
@@ -814,7 +826,7 @@ class AppController(QObject):
         total = max(1, int(payload_obj.get("total") or 1))
 
         if stage == "attempt":
-            self.overlay.set_status_hint(f"Buscando letra... tentativa {attempt}/{total}")
+            self.overlay.set_status_hint(self._tr("status_fetch_attempt", attempt=attempt, total=total))
         elif stage == "retry":
             retry_msg = self._friendly_retry_message(str(payload_obj.get("message") or ""))
             self.overlay.set_status_hint(f"{retry_msg} {min(attempt + 1, total)}/{total}")
@@ -873,7 +885,7 @@ class AppController(QObject):
         outcome = str(payload_obj.get("outcome") or "")
         if not payload_obj.get("found"):
             transient_error = bool(payload_obj.get("transient_error"))
-            message = str(payload_obj.get("message") or "Falha temporária ao buscar letra")
+            message = str(payload_obj.get("message") or self._tr("msg_temp_lyrics_fetch_fail"))
             self.logger.info(
                 "Lyrics fetch failed (transient=%s code=%s track=%s): %s",
                 transient_error,
@@ -884,12 +896,12 @@ class AppController(QObject):
             if outcome == OUTCOME_FAIL_TRANSIENT_NETWORK or transient_error:
                 self.overlay.set_status_hint(self._friendly_retry_message(message))
                 # Keep loading state visible while retry is pending; do not restore old lyric.
-                self.overlay.set_lyric_text("Buscando letra...")
+                self.overlay.set_lyric_text(self._tr("overlay_loading_lyrics"))
                 self._schedule_transient_retry()
                 return
 
-            self.overlay.set_status_hint("Letra indisponível")
-            self._schedule_fallback_text("Letra não encontrada.")
+            self.overlay.set_status_hint(self._tr("status_lyrics_unavailable"))
+            self._schedule_fallback_text(self._tr("overlay_lyrics_not_found"))
             return
 
         self.overlay.set_status_hint("")
@@ -974,7 +986,7 @@ class AppController(QObject):
                 first_ts.group(1) if first_ts else None,
             )
             self.sync.clear()
-            self._last_lyric_line = "Letra indisponível."
+            self._last_lyric_line = self._tr("overlay_synced_parse_failed")
             self.overlay.set_lyric_text(self._last_lyric_line)
             self.overlay.set_status_hint("")
             return
@@ -991,7 +1003,7 @@ class AppController(QObject):
         self._failure_hold_timer.stop()
         self._pending_fallback_track_seq = -1
         self._pending_fallback_text = ""
-        self.overlay.set_lyric_text("Buscando letra...")
+        self.overlay.set_lyric_text(self._tr("overlay_loading_lyrics"))
 
     def _apply_unsynced_success(self) -> None:
         fallback = self._friendly_no_synced_message()
@@ -1095,30 +1107,31 @@ class AppController(QObject):
             new_config = load_config(self.paths)
         except Exception:
             self.logger.exception("Falha ao recarregar config do disco")
-            self.overlay.set_status_hint("Falha ao recarregar config")
+            self.overlay.set_status_hint(self._tr("status_config_reload_failed"))
             return
         self._apply_loaded_config(new_config)
-        self.overlay.set_status_hint("Config recarregada")
+        self.overlay.set_status_hint(self._tr("status_config_reloaded"))
         QTimer.singleShot(1500, lambda: self.overlay.set_status_hint(""))
 
     def _friendly_retry_message(self, detail: str) -> str:
         text = (detail or "").lower()
         if "timeout" in text or "tempo de resposta" in text or "conexão esgotado" in text:
-            return "Falha de rede (timeout). Tentando novamente..."
-        return "Falha temporária de conexão. Tentando novamente..."
+            return self._tr("msg_network_timeout_retrying")
+        return self._tr("msg_network_transient_retrying")
 
     def _friendly_network_fail_overlay_message(self, detail: str) -> str:
         text = (detail or "").lower()
         if "timeout" in text or "tempo de resposta" in text:
-            return "Falha de rede (timeout). Tentando novamente..."
-        return "Falha temporária de conexão. Tentando novamente..."
+            return self._tr("msg_network_timeout_retrying")
+        return self._tr("msg_network_transient_retrying")
 
     def _friendly_no_synced_message(self) -> str:
         configured = (self.config.lyrics.fallback_unsynced_text or "").strip()
-        return configured or DEFAULT_NO_SYNCED_TEXT
+        return configured or self._tr("default_no_synced_text")
 
     def _apply_loaded_config(self, new_config: AppConfig) -> None:
         self.config = new_config
+        self._apply_ui_language()
         self._apply_clock_config()
         self.overlay.apply_config(self.config)
         self.lyrics_cache.resize(self.config.cache.max_entries)
@@ -1170,8 +1183,9 @@ class AppController(QObject):
         self.config.overlay.snap_to_taskbar = bool(payload_obj.snap_to_taskbar)
 
         save_config(self.paths, self.config)
+        self._apply_ui_language()
         self.overlay.apply_config(self.config)
-        self.overlay.set_status_hint("Config salva")
+        self.overlay.set_status_hint(self._tr("status_config_saved"))
         QTimer.singleShot(1500, lambda: self.overlay.set_status_hint(""))
 
     def _on_position_committed(self, payload_obj: object) -> None:

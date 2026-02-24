@@ -242,11 +242,22 @@ class OverlayWindow(QWidget):
         screen = self._current_screen()
         if screen is None:
             return
-        geo = screen.availableGeometry()
-        max_x = max(geo.left(), (geo.right() + 1) - self.width())
-        max_y = max(geo.top(), (geo.bottom() + 1) - self.height())
-        x = min(max(self.x(), geo.left()), max_x)
-        y = min(max(self.y(), geo.top()), max_y)
+        # Clamp to the monitor while allowing controlled overflow equal to the
+        # taskbar-reserved thickness on this screen. This preserves positions
+        # intentionally placed a few pixels "into" the taskbar/off-screen and
+        # scales automatically for different resolutions/DPI/taskbar sizes.
+        geo = screen.geometry()
+        avail = screen.availableGeometry()
+        left_overflow = max(0, avail.left() - geo.left())
+        top_overflow = max(0, avail.top() - geo.top())
+        right_overflow = max(0, geo.right() - avail.right())
+        bottom_overflow = max(0, geo.bottom() - avail.bottom())
+        min_x = geo.left() - left_overflow
+        min_y = geo.top() - top_overflow
+        max_x = max(min_x, (geo.right() + 1) - self.width() + right_overflow)
+        max_y = max(min_y, (geo.bottom() + 1) - self.height() + bottom_overflow)
+        x = min(max(self.x(), min_x), max_x)
+        y = min(max(self.y(), min_y), max_y)
         self.move(x, y)
 
     def _build_position_payload(self) -> PositionPayload | None:
