@@ -178,6 +178,149 @@ UI_TEXTS: dict[str, dict[str, str]] = {
     },
 }
 
+SETTINGS_UI_TEXTS: dict[str, dict[str, str]] = {
+    "PT-BR": {
+        "window_title": "Configurações - STZLyrics Overlay",
+        "label_font": "Fonte",
+        "label_size": "Tamanho",
+        "label_color_rgba": "Cor RGBA",
+        "label_shadow_color_rgba": "Cor sombra RGBA",
+        "label_offset_seconds": "Offset (seg)",
+        "label_language": "Idioma",
+        "label_mode_preset": "Modo / Preset",
+        "pick_color": "Selecionar...",
+        "shadow_enabled": "Ativar sombra",
+        "click_through": "Clicar Através",
+        "snap_to_taskbar": "Snap na taskbar/borda",
+        "save": "Salvar",
+        "close": "Fechar",
+        "preset_minimal": "Mínimo",
+        "preset_detailed": "Detalhado",
+        "invalid_text_color": "Cor RGBA inválida para o texto.",
+        "invalid_shadow_color": "Cor RGBA inválida para a sombra.",
+    },
+    "EN": {
+        "window_title": "Settings - STZLyrics Overlay",
+        "label_font": "Font",
+        "label_size": "Size",
+        "label_color_rgba": "Color RGBA",
+        "label_shadow_color_rgba": "Shadow Color RGBA",
+        "label_offset_seconds": "Offset (sec)",
+        "label_language": "Language",
+        "label_mode_preset": "Mode / Preset",
+        "pick_color": "Select...",
+        "shadow_enabled": "Enable shadow",
+        "click_through": "Click-through",
+        "snap_to_taskbar": "Snap to taskbar/edge",
+        "save": "Save",
+        "close": "Close",
+        "preset_minimal": "Minimal",
+        "preset_detailed": "Detailed",
+        "invalid_text_color": "Invalid RGBA color for text.",
+        "invalid_shadow_color": "Invalid RGBA color for shadow.",
+    },
+    "ES": {
+        "window_title": "Configuración - STZLyrics Overlay",
+        "label_font": "Fuente",
+        "label_size": "Tamaño",
+        "label_color_rgba": "Color RGBA",
+        "label_shadow_color_rgba": "Color de sombra RGBA",
+        "label_offset_seconds": "Offset (seg)",
+        "label_language": "Idioma",
+        "label_mode_preset": "Modo / Preajuste",
+        "pick_color": "Seleccionar...",
+        "shadow_enabled": "Activar sombra",
+        "click_through": "Clic a través",
+        "snap_to_taskbar": "Ajustar a la barra/borde",
+        "save": "Guardar",
+        "close": "Cerrar",
+        "preset_minimal": "Mínimo",
+        "preset_detailed": "Detallado",
+        "invalid_text_color": "Color RGBA inválido para el texto.",
+        "invalid_shadow_color": "Color RGBA inválido para la sombra.",
+    },
+    "IT": {
+        "window_title": "Impostazioni - STZLyrics Overlay",
+        "label_font": "Carattere",
+        "label_size": "Dimensione",
+        "label_color_rgba": "Colore RGBA",
+        "label_shadow_color_rgba": "Colore ombra RGBA",
+        "label_offset_seconds": "Offset (sec)",
+        "label_language": "Lingua",
+        "label_mode_preset": "Modalità / Preset",
+        "pick_color": "Seleziona...",
+        "shadow_enabled": "Attiva ombra",
+        "click_through": "Clic attraverso",
+        "snap_to_taskbar": "Aggancia a taskbar/bordo",
+        "save": "Salva",
+        "close": "Chiudi",
+        "preset_minimal": "Minimo",
+        "preset_detailed": "Dettagliato",
+        "invalid_text_color": "Colore RGBA non valido per il testo.",
+        "invalid_shadow_color": "Colore RGBA non valido per l'ombra.",
+    },
+    "DE": {
+        "window_title": "Einstellungen - STZLyrics Overlay",
+        "label_font": "Schriftart",
+        "label_size": "Größe",
+        "label_color_rgba": "RGBA-Farbe",
+        "label_shadow_color_rgba": "Schattenfarbe RGBA",
+        "label_offset_seconds": "Offset (Sek)",
+        "label_language": "Sprache",
+        "label_mode_preset": "Modus / Preset",
+        "pick_color": "Auswählen...",
+        "shadow_enabled": "Schatten aktivieren",
+        "click_through": "Durchklicken",
+        "snap_to_taskbar": "An Taskleiste/Rand einrasten",
+        "save": "Speichern",
+        "close": "Schließen",
+        "preset_minimal": "Minimal",
+        "preset_detailed": "Detailliert",
+        "invalid_text_color": "Ungültige RGBA-Farbe für den Text.",
+        "invalid_shadow_color": "Ungültige RGBA-Farbe für den Schatten.",
+    },
+    "FR": {
+        "window_title": "Paramètres - STZLyrics Overlay",
+        "label_font": "Police",
+        "label_size": "Taille",
+        "label_color_rgba": "Couleur RGBA",
+        "label_shadow_color_rgba": "Couleur d'ombre RGBA",
+        "label_offset_seconds": "Offset (sec)",
+        "label_language": "Langue",
+        "label_mode_preset": "Mode / Préréglage",
+        "pick_color": "Sélectionner...",
+        "shadow_enabled": "Activer l'ombre",
+        "click_through": "Clic à travers",
+        "snap_to_taskbar": "Aimanter à la barre/bord",
+        "save": "Enregistrer",
+        "close": "Fermer",
+        "preset_minimal": "Minimal",
+        "preset_detailed": "Détaillé",
+        "invalid_text_color": "Couleur RGBA invalide pour le texte.",
+        "invalid_shadow_color": "Couleur RGBA invalide pour l'ombre.",
+    },
+    "JP": {
+        "window_title": "設定 - STZLyrics Overlay",
+        "label_font": "フォント",
+        "label_size": "サイズ",
+        "label_color_rgba": "色 RGBA",
+        "label_shadow_color_rgba": "影の色 RGBA",
+        "label_offset_seconds": "オフセット (秒)",
+        "label_language": "言語",
+        "label_mode_preset": "モード / プリセット",
+        "pick_color": "選択...",
+        "shadow_enabled": "影を有効化",
+        "click_through": "クリック透過",
+        "snap_to_taskbar": "タスクバー/端にスナップ",
+        "save": "保存",
+        "close": "閉じる",
+        "preset_minimal": "最小",
+        "preset_detailed": "詳細",
+        "invalid_text_color": "テキストのRGBA色が無効です。",
+        "invalid_shadow_color": "影のRGBA色が無効です。",
+    },
+}
+
 
 def normalize_ui_language(language_code: str | None) -> str:
     code = (language_code or "").strip().upper()
@@ -203,6 +346,17 @@ def normalize_ui_language(language_code: str | None) -> str:
 def tr_ui(language_code: str | None, key: str, **kwargs: Any) -> str:
     lang = normalize_ui_language(language_code)
     template = UI_TEXTS.get(lang, {}).get(key) or UI_TEXTS["EN"].get(key) or key
+    if kwargs:
+        try:
+            return template.format(**kwargs)
+        except Exception:
+            return template
+    return template
+
+
+def tr_settings_ui(language_code: str | None, key: str, **kwargs: Any) -> str:
+    lang = normalize_ui_language(language_code)
+    template = SETTINGS_UI_TEXTS.get(lang, {}).get(key) or SETTINGS_UI_TEXTS["EN"].get(key) or key
     if kwargs:
         try:
             return template.format(**kwargs)
