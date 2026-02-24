@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 
 from PySide6.QtCore import QPoint, QRect, Qt, QTimer, Signal
@@ -54,6 +55,13 @@ class OverlayWindow(QWidget):
         self._status_hint = ""
         self._clock_debug_text = ""
         self._track_base_text = "Aguardando mídia..."
+        self._context_lines: list[str] | None = None
+        self._context_current_slot = 0
+        self._context_anchor_index = -1
+        self._context_prev_lines: list[str] | None = None
+        self._context_prev_slot = 0
+        self._context_anim_started_at = 0.0
+        self._context_anim_direction = 0
         self._click_through = bool(config.overlay.click_through)
         self._snap_enabled = bool(config.overlay.snap_to_taskbar)
         self._dragging = False
@@ -67,6 +75,9 @@ class OverlayWindow(QWidget):
         self._topmost_guard_timer = QTimer(self)
         self._topmost_guard_timer.setInterval(250)
         self._topmost_guard_timer.timeout.connect(self._topmost_guard_tick)
+        self._context_anim_timer = QTimer(self)
+        self._context_anim_timer.setInterval(16)
+        self._context_anim_timer.timeout.connect(self._context_anim_tick)
 
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
@@ -93,6 +104,8 @@ class OverlayWindow(QWidget):
     def apply_layout_preset(self, preset: str) -> None:
         self._layout_model = build_layout_render_model(preset)
         logger.info("Applying layout preset preset=%s", self._layout_model.preset.value)
+        if not self.lyric_context_request():
+            self._clear_lyric_context()
         self.update()
 
     def _log_color_application(self) -> None:
@@ -136,7 +149,64 @@ class OverlayWindow(QWidget):
         self.update()
 
     def set_lyric_text(self, text: str) -> None:
+        self._clear_lyric_context()
         self._lyric_text = (text or "").strip()
+        self.update()
+
+    def lyric_context_request(self) -> tuple[int, int] | None:
+        before = int(getattr(self._layout_model, "context_before", 0) or 0)
+        after = int(getattr(self._layout_model, "context_after", 0) or 0)
+        if before <= 0 and after <= 0:
+            return None
+        return max(0, before), max(0, after)
+
+    def has_lyric_context(self) -> bool:
+        return self._context_lines is not None
+
+    def set_lyric_context(self, lines: list[str], current_slot: int, anchor_index: int) -> None:
+        request = self.lyric_context_request()
+        if request is None:
+            current_text = ""
+            if lines and 0 <= int(current_slot) < len(lines):
+                current_text = lines[int(current_slot)] or ""
+            self.set_lyric_text(current_text)
+            return
+        sanitized = [str(line or "") for line in (lines or [])]
+        if not sanitized:
+            self.set_lyric_text("")
+            return
+        slot = int(current_slot)
+        if slot < 0:
+            slot = 0
+        if slot >= len(sanitized):
+            slot = len(sanitized) - 1
+        prev_lines = self._context_lines
+        prev_anchor = self._context_anchor_index
+        prev_slot = self._context_current_slot
+        self._context_lines = sanitized
+        self._context_current_slot = slot
+        self._context_anchor_index = int(anchor_index)
+        self._lyric_text = sanitized[slot] or ""
+
+        animate = bool(getattr(self._layout_model, "animate_context_transition", False))
+        duration_ms = int(getattr(self._layout_model, "context_anim_duration_ms", 220) or 220)
+        delta_idx = self._context_anchor_index - prev_anchor
+        if (
+            animate
+            and prev_lines is not None
+            and prev_anchor >= 0
+            and duration_ms > 0
+            and delta_idx in (-1, 1)
+            and len(prev_lines) == len(sanitized)
+        ):
+            self._context_prev_lines = list(prev_lines)
+            self._context_prev_slot = int(prev_slot)
+            self._context_anim_direction = int(delta_idx)
+            self._context_anim_started_at = time.monotonic()
+            if self.isVisible() and (not self._context_anim_timer.isActive()):
+                self._context_anim_timer.start()
+        else:
+            self._clear_context_animation()
         self.update()
 
     def set_status_hint(self, text: str) -> None:
@@ -148,6 +218,40 @@ class OverlayWindow(QWidget):
         self._clock_debug_text = (text or "").strip()
         self._rebuild_track_text()
         self.update()
+
+    def _clear_context_animation(self) -> None:
+        self._context_prev_lines = None
+        self._context_prev_slot = 0
+        self._context_anim_started_at = 0.0
+        self._context_anim_direction = 0
+        if self._context_anim_timer.isActive():
+            self._context_anim_timer.stop()
+
+    def _clear_lyric_context(self) -> None:
+        self._clear_context_animation()
+        self._context_lines = None
+        self._context_current_slot = 0
+        self._context_anchor_index = -1
+
+    def _context_anim_tick(self) -> None:
+        if self._context_prev_lines is None or self._context_anim_direction == 0:
+            self._clear_context_animation()
+            return
+        progress = self._context_anim_progress()
+        if progress >= 1.0:
+            self._clear_context_animation()
+        self.update()
+
+    def _context_anim_progress(self) -> float:
+        if self._context_prev_lines is None or self._context_anim_direction == 0:
+            return 1.0
+        duration_ms = max(1, int(getattr(self._layout_model, "context_anim_duration_ms", 220) or 220))
+        elapsed_ms = (time.monotonic() - self._context_anim_started_at) * 1000.0
+        if elapsed_ms <= 0.0:
+            return 0.0
+        if elapsed_ms >= duration_ms:
+            return 1.0
+        return max(0.0, min(1.0, elapsed_ms / float(duration_ms)))
 
     def _rebuild_track_text(self) -> None:
         base = self._track_base_text
@@ -327,6 +431,8 @@ class OverlayWindow(QWidget):
     def hideEvent(self, event) -> None:  # noqa: N802
         super().hideEvent(event)
         self._sync_topmost_guard_timer()
+        if self._context_anim_timer.isActive():
+            self._context_anim_timer.stop()
 
     def paintEvent(self, event) -> None:  # noqa: N802
         painter = QPainter(self)
@@ -368,13 +474,16 @@ class OverlayWindow(QWidget):
                 font=track_font,
                 color=self._track_color,
             )
-        self._draw_text(
-            painter,
-            rect=lyric_rect,
-            text=self._elide(lyric_font, self._lyric_text, lyric_rect.width()),
-            font=lyric_font,
-            color=self._lyric_color,
-        )
+        if self._context_lines is not None and self.lyric_context_request() is not None:
+            self._draw_context_lyrics(painter, lyric_rect, lyric_font)
+        else:
+            self._draw_text(
+                painter,
+                rect=lyric_rect,
+                text=self._elide(lyric_font, self._lyric_text, lyric_rect.width()),
+                font=lyric_font,
+                color=self._lyric_color,
+            )
 
     def _elide(self, font: QFont, text: str, width: int) -> str:
         return QFontMetrics(font).elidedText(text, Qt.ElideRight, max(10, width))
@@ -391,3 +500,97 @@ class OverlayWindow(QWidget):
             )
         painter.setPen(color)
         painter.drawText(rect, Qt.AlignLeft | Qt.AlignVCenter, text)
+
+    def _draw_context_lyrics(self, painter: QPainter, rect: QRect, font: QFont) -> None:
+        lines = self._context_lines or []
+        if not lines:
+            self._draw_text(
+                painter,
+                rect=rect,
+                text=self._elide(font, self._lyric_text, rect.width()),
+                font=font,
+                color=self._lyric_color,
+            )
+            return
+        painter.save()
+        painter.setClipRect(rect)
+        progress = self._context_anim_progress()
+        fm = QFontMetrics(font)
+        line_height = max(1, fm.height())
+        pitch = line_height + max(0, int(getattr(self._layout_model, "context_line_gap", 4) or 0))
+        if self._context_prev_lines is not None and self._context_anim_direction in (-1, 1) and progress < 1.0:
+            visual_sign = -1 if self._context_anim_direction > 0 else 1
+            step = float(pitch)
+            old_offset = visual_sign * progress * step
+            new_offset = (-visual_sign) * (1.0 - progress) * step
+            self._draw_context_block(
+                painter,
+                rect=rect,
+                font=font,
+                lines=self._context_prev_lines,
+                current_slot=self._context_prev_slot,
+                y_offset=old_offset,
+                block_opacity=max(0.0, 1.0 - progress),
+            )
+            self._draw_context_block(
+                painter,
+                rect=rect,
+                font=font,
+                lines=lines,
+                current_slot=self._context_current_slot,
+                y_offset=new_offset,
+                block_opacity=min(1.0, 0.25 + (0.75 * progress)),
+            )
+        else:
+            self._draw_context_block(
+                painter,
+                rect=rect,
+                font=font,
+                lines=lines,
+                current_slot=self._context_current_slot,
+                y_offset=0.0,
+                block_opacity=1.0,
+            )
+        painter.restore()
+
+    def _draw_context_block(
+        self,
+        painter: QPainter,
+        *,
+        rect: QRect,
+        font: QFont,
+        lines: list[str],
+        current_slot: int,
+        y_offset: float,
+        block_opacity: float,
+    ) -> None:
+        if not lines or rect.height() <= 0 or rect.width() <= 0 or block_opacity <= 0.0:
+            return
+        fm = QFontMetrics(font)
+        line_height = max(1, fm.height())
+        gap = max(0, int(getattr(self._layout_model, "context_line_gap", 4) or 0))
+        pitch = line_height + gap
+        center_y = rect.center().y()
+        for slot, raw_text in enumerate(lines):
+            text = str(raw_text or "")
+            if not text:
+                continue
+            rel = slot - int(current_slot)
+            line_center_y = center_y + int(round(y_offset)) + (rel * pitch)
+            line_rect = QRect(rect.left(), int(line_center_y - (line_height // 2)), rect.width(), line_height)
+            if line_rect.bottom() < rect.top() or line_rect.top() > rect.bottom():
+                continue
+            distance = abs(rel)
+            alpha_scale = 1.0 if distance == 0 else (0.55 if distance == 1 else 0.28)
+            color = QColor(self._lyric_color)
+            color.setAlpha(max(0, min(255, int(round(color.alpha() * alpha_scale)))))
+            painter.save()
+            painter.setOpacity(max(0.0, min(1.0, block_opacity)))
+            self._draw_text(
+                painter,
+                rect=line_rect,
+                text=self._elide(font, text, line_rect.width()),
+                font=font,
+                color=color,
+            )
+            painter.restore()

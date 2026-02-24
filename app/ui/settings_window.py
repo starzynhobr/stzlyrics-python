@@ -160,6 +160,7 @@ class SettingsWindow(QDialog):
         self.layout_preset_combo.clear()
         self.layout_preset_combo.addItem(self._tr("preset_minimal"), LayoutPreset.MINIMAL.value)
         self.layout_preset_combo.addItem(self._tr("preset_detailed"), LayoutPreset.DETAILED.value)
+        self.layout_preset_combo.addItem(self._tr("preset_context_2_2"), LayoutPreset.CONTEXT_2_2.value)
         idx = self.layout_preset_combo.findData(current_value)
         self.layout_preset_combo.setCurrentIndex(max(0, idx))
         self.layout_preset_combo.blockSignals(False)

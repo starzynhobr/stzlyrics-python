@@ -143,6 +143,32 @@ class LyricsSynchronizer:
         # falling back to an unrelated lyric from elsewhere in the file.
         return text or ""
 
+    def current_index(self) -> int:
+        if not self._lines:
+            return -1
+        total = len(self._lines)
+        if self._current_index < 0:
+            return 0
+        if self._current_index >= total:
+            return total - 1
+        return self._current_index
+
+    def context_window(self, before: int, after: int) -> tuple[list[str], int, int]:
+        if not self._lines:
+            return [], 0, -1
+        before_n = max(0, int(before))
+        after_n = max(0, int(after))
+        current_idx = self.current_index()
+        slot_current = before_n
+        items: list[str] = []
+        for rel in range(-before_n, after_n + 1):
+            idx = current_idx + rel
+            if 0 <= idx < len(self._lines):
+                items.append(self._lines[idx].text or "")
+            else:
+                items.append("")
+        return items, slot_current, current_idx
+
     def _find_index_for_position(self, pos: float) -> int:
         if not self._times:
             return 0

@@ -1012,6 +1012,16 @@ class AppController(QObject):
         self.overlay.set_lyric_text(fallback)
         self.overlay.set_status_hint("")
 
+    def _set_overlay_synced_lyric(self, line: str) -> None:
+        context_request = self.overlay.lyric_context_request()
+        if context_request is not None and self.sync.has_synced():
+            before, after = context_request
+            lines, slot_current, anchor_index = self.sync.context_window(before=before, after=after)
+            if lines:
+                self.overlay.set_lyric_context(lines, slot_current, anchor_index)
+                return
+        self.overlay.set_lyric_text((line or "").strip() or "...")
+
     def _update_synced_lyric_line(
         self,
         force: bool = False,
@@ -1044,7 +1054,7 @@ class AppController(QObject):
             shown = self._latched_paused_line or "..."
             if force or self._last_lyric_line != (self._latched_paused_line or ""):
                 self._last_lyric_line = self._latched_paused_line or ""
-                self.overlay.set_lyric_text(shown)
+                self._set_overlay_synced_lyric(shown)
             self._was_effective_playing = False
             return
         if self._latched_paused_line is not None:
@@ -1055,10 +1065,12 @@ class AppController(QObject):
             offset_seconds=self.config.lyrics.offset_seconds,
         )
         if not force and line == self._last_lyric_line:
-            return
+            context_request = self.overlay.lyric_context_request()
+            if context_request is None or self.overlay.has_lyric_context():
+                return
         self._last_lyric_line = line
         shown = line or "..."
-        self.overlay.set_lyric_text(shown)
+        self._set_overlay_synced_lyric(shown)
         if line:
             self._last_good_lyric_line = line
             self._last_good_lyric_at = time.time()
