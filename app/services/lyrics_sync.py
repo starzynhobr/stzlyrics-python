@@ -139,12 +139,9 @@ class LyricsSynchronizer:
         self._last_position = pos
         text = self._lines[self._current_index].text
         self._debug_sync_tick(playback_position, offset_seconds, pos)
-        if text:
-            return text
-        for line in self._lines:
-            if line.text:
-                return line.text
-        return "..."
+        # Keep empty timed lines as empty (instrumental gaps) instead of
+        # falling back to an unrelated lyric from elsewhere in the file.
+        return text or ""
 
     def _find_index_for_position(self, pos: float) -> int:
         if not self._times:

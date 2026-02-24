@@ -202,7 +202,15 @@ class _PlaybackClock:
             raw_status=raw_status,
             now_mono=now,
         )
-        self._apply_play_state_hysteresis(candidate_playing)
+        explicit_paused = (not bool(state.is_playing)) and (raw_status == "paused")
+        if explicit_paused:
+            # Trust an explicit PAUSED signal immediately to avoid multi-second lag
+            # from the recent-progress grace window + hysteresis.
+            self._candidate_playing = False
+            self._candidate_playing_count = CLOCK_PLAY_STATE_HYSTERESIS_POLLS
+            self.is_playing = False
+        else:
+            self._apply_play_state_hysteresis(candidate_playing)
 
         if self.is_playing and (err < -self.backward_lag_ignore_s):
             # GSMTC (notably Spotify) can freeze the reported timeline position for
@@ -287,6 +295,8 @@ class _PlaybackClock:
     def _compute_candidate_playing(self, raw_is_playing: bool, raw_status: str, now_mono: float) -> bool:
         if raw_is_playing or raw_status == "playing":
             return True
+        if raw_status == "paused":
+            return False
         recent_progress = (now_mono - self._last_raw_advance_mono) <= CLOCK_PLAYING_PROGRESS_GRACE_SECONDS
         return bool(recent_progress)
 
