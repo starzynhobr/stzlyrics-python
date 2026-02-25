@@ -5,6 +5,7 @@ import inspect
 import os
 import sys
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from app.config import AppPaths, load_config
@@ -13,6 +14,7 @@ from app.logging_utils import setup_logging
 from app.services.cache import LyricsCache
 from app.services.lrclib_client import LrclibClient
 from app.services.media_session import MediaSessionService
+from app.ui.app_icon import load_app_icon
 from app.ui.overlay_window import OverlayWindow
 from app.ui.system_tray import TrayController
 
@@ -32,6 +34,9 @@ def main() -> int:
     args, qt_args = _parse_args(sys.argv[1:])
     app = QApplication([sys.argv[0], *qt_args])
     app.setQuitOnLastWindowClosed(False)
+    app_icon = load_app_icon()
+    if isinstance(app_icon, QIcon) and (not app_icon.isNull()):
+        app.setWindowIcon(app_icon)
 
     paths = AppPaths.default()
     paths.ensure()
