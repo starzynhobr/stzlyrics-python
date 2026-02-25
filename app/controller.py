@@ -1208,6 +1208,12 @@ class AppController(QObject):
         self.config.overlay.snap_to_taskbar = bool(payload_obj.snap_to_taskbar)
 
         save_config(self.paths, self.config)
+        self._apply_ui_language()
+        self.overlay.apply_config(self.config)
+        if str(self.config.overlay.layout_preset or "") != previous_preset:
+            self.overlay.restore_position()
+        self.overlay.set_status_hint(self._tr("status_config_saved"))
+        QTimer.singleShot(1500, lambda: self.overlay.set_status_hint(""))
 
     def _sync_startup_setting_from_system(self) -> None:
         if not startup_is_supported():
@@ -1230,12 +1236,6 @@ class AppController(QObject):
         except Exception:
             self.logger.exception("Failed to update Windows startup (HKCU Run) state")
             return None
-        self._apply_ui_language()
-        self.overlay.apply_config(self.config)
-        if str(self.config.overlay.layout_preset or "") != previous_preset:
-            self.overlay.restore_position()
-        self.overlay.set_status_hint(self._tr("status_config_saved"))
-        QTimer.singleShot(1500, lambda: self.overlay.set_status_hint(""))
 
     def _on_position_committed(self, payload_obj: object) -> None:
         if not isinstance(payload_obj, PositionPayload):
