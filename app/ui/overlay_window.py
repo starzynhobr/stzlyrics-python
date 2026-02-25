@@ -45,7 +45,7 @@ class OverlayWindow(QWidget):
 
     def __init__(self, config: AppConfig, parent: QWidget | None = None) -> None:
         flags = Qt.FramelessWindowHint | Qt.Tool
-        if config.overlay.always_on_top:
+        if config.get_preset_always_on_top(getattr(config.overlay, "layout_preset", "")):
             flags |= Qt.WindowStaysOnTopHint
         super().__init__(parent, flags)
 
@@ -71,7 +71,9 @@ class OverlayWindow(QWidget):
         self._shadow_color = QColor(0, 0, 0, 255)
         self._layout_model = build_layout_render_model("detailed")
         self._debug_clock_overlay_enabled = False
-        self._always_on_top_enabled = bool(config.overlay.always_on_top)
+        self._always_on_top_enabled = bool(
+            config.get_preset_always_on_top(getattr(config.overlay, "layout_preset", ""))
+        )
         self._topmost_guard_timer = QTimer(self)
         self._topmost_guard_timer.setInterval(250)
         self._topmost_guard_timer.timeout.connect(self._topmost_guard_tick)
@@ -88,7 +90,10 @@ class OverlayWindow(QWidget):
         self._config = config
         self._click_through = bool(config.overlay.click_through)
         self._snap_enabled = bool(config.overlay.snap_to_taskbar)
-        self._always_on_top_enabled = bool(config.overlay.always_on_top)
+        self._always_on_top_enabled = bool(
+            config.get_preset_always_on_top(getattr(config.overlay, "layout_preset", ""))
+        )
+        self._apply_qt_topmost_flag()
         self.apply_layout_preset(getattr(self._config.overlay, "layout_preset", "detailed"))
         self._debug_clock_overlay_enabled = bool(getattr(self._config.clock, "debug_clock_overlay", False))
         self._track_color = _safe_color(self._config.font.track_color, "#C8C8C8FF")
@@ -101,8 +106,22 @@ class OverlayWindow(QWidget):
         self._apply_overlay_size()
         self.update()
         self.apply_click_through()
-        self._ensure_topmost_if_needed()
+        self._apply_native_topmost_state()
         self._sync_topmost_guard_timer()
+
+    def _apply_qt_topmost_flag(self) -> None:
+        desired = bool(self._always_on_top_enabled)
+        current = bool(self.windowFlags() & Qt.WindowStaysOnTopHint)
+        if current == desired:
+            return
+        was_visible = self.isVisible()
+        pos = self.pos()
+        size = self.size()
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, desired)
+        if was_visible:
+            self.show()
+            self.resize(size)
+            self.move(pos)
 
     def apply_layout_preset(self, preset: str) -> None:
         self._layout_model = build_layout_render_model(preset)
@@ -320,6 +339,16 @@ class OverlayWindow(QWidget):
         # topmost stack after shell/taskbar interactions.
         self.raise_()
         set_window_topmost(hwnd, True, force_reorder=True)
+
+    def _apply_native_topmost_state(self) -> None:
+        try:
+            hwnd = int(self.winId())
+        except Exception:
+            hwnd = 0
+        if self._always_on_top_enabled:
+            self._ensure_topmost_if_needed()
+            return
+        set_window_topmost(hwnd, False, force_reorder=False)
 
     def _topmost_guard_tick(self) -> None:
         self._ensure_topmost_if_needed()

@@ -54,6 +54,7 @@ class SettingsValues:
     offset_seconds: float
     language: str
     layout_preset: str
+    always_on_top: bool
     click_through: bool
     snap_to_taskbar: bool
 
@@ -69,6 +70,9 @@ class SettingsWindow(QDialog):
         self._loaded_preset_font_colors: dict[str, str] = {}
         self._loaded_default_font_color = "#FFFFFFFF"
         self._active_preset_for_font_color = LayoutPreset.DETAILED.value
+        self._preset_always_on_top_drafts: dict[str, bool] = {}
+        self._loaded_preset_always_on_top: dict[str, bool] = {}
+        self._loaded_default_always_on_top = True
         self._preset_switch_internal = False
 
         self.validation_label = QLabel("")
@@ -93,6 +97,7 @@ class SettingsWindow(QDialog):
         self.language_combo.addItems(SUPPORTED_LANGUAGES)
         self.layout_preset_combo = _NoWheelComboBox()
 
+        self.always_on_top_check = QCheckBox()
         self.click_through_check = QCheckBox()
         self.snap_check = QCheckBox()
 
@@ -106,6 +111,7 @@ class SettingsWindow(QDialog):
         self._blank_label_1 = QLabel("")
         self._blank_label_2 = QLabel("")
         self._blank_label_3 = QLabel("")
+        self._blank_label_4 = QLabel("")
 
         font_color_row = self._build_color_row(self.font_color_edit, self.font_color_pick_button)
         shadow_color_row = self._build_color_row(self.shadow_color_edit, self.shadow_color_pick_button)
@@ -119,6 +125,7 @@ class SettingsWindow(QDialog):
         self.form.addRow(self._label_offset_seconds, self.offset_spin)
         self.form.addRow(self._label_language, self.language_combo)
         self.form.addRow(self._label_mode_preset, self.layout_preset_combo)
+        self.form.addRow(self._blank_label_4, self.always_on_top_check)
         self.form.addRow(self._blank_label_2, self.click_through_check)
         self.form.addRow(self._blank_label_3, self.snap_check)
 
@@ -183,15 +190,29 @@ class SettingsWindow(QDialog):
             self._loaded_default_font_color,
         )
 
+    def _resolved_always_on_top_for_preset(self, preset_value: str) -> bool:
+        preset_key = normalize_layout_preset(preset_value)
+        if preset_key in self._preset_always_on_top_drafts:
+            return bool(self._preset_always_on_top_drafts[preset_key])
+        if preset_key in self._loaded_preset_always_on_top:
+            return bool(self._loaded_preset_always_on_top[preset_key])
+        return bool(self._loaded_default_always_on_top)
+
+    def _stash_current_preset_always_on_top(self) -> None:
+        preset_key = normalize_layout_preset(self._active_preset_for_font_color)
+        self._preset_always_on_top_drafts[preset_key] = bool(self.always_on_top_check.isChecked())
+
     def _apply_font_color_for_selected_preset(self) -> None:
         preset_key = self._current_preset_value()
         self._active_preset_for_font_color = preset_key
         self.font_color_edit.setText(self._resolved_font_color_for_preset(preset_key))
+        self.always_on_top_check.setChecked(self._resolved_always_on_top_for_preset(preset_key))
 
     def _on_layout_preset_changed(self, *_args) -> None:
         if self._preset_switch_internal:
             return
         self._stash_current_preset_font_color()
+        self._stash_current_preset_always_on_top()
         self._apply_font_color_for_selected_preset()
 
     def _refresh_layout_preset_combo_items(self) -> None:
@@ -221,6 +242,7 @@ class SettingsWindow(QDialog):
         self.font_color_pick_button.setText(self._tr("pick_color"))
         self.shadow_color_pick_button.setText(self._tr("pick_color"))
         self.shadow_enabled_check.setText(self._tr("shadow_enabled"))
+        self.always_on_top_check.setText(self._tr("always_on_top"))
         self.click_through_check.setText(self._tr("click_through"))
         self.snap_check.setText(self._tr("snap_to_taskbar"))
         self.save_button.setText(self._tr("save"))
@@ -257,6 +279,13 @@ class SettingsWindow(QDialog):
             if isinstance(k, str) and isinstance(v, str)
         }
         self._preset_font_color_drafts = dict(self._loaded_preset_font_colors)
+        self._loaded_default_always_on_top = bool(getattr(config.overlay, "always_on_top", True))
+        self._loaded_preset_always_on_top = {
+            normalize_layout_preset(str(k)): bool(v)
+            for k, v in getattr(config.overlay, "always_on_top_by_preset", {}).items()
+            if isinstance(k, str)
+        }
+        self._preset_always_on_top_drafts = dict(self._loaded_preset_always_on_top)
         self.font_family_edit.setText(str(config.font.family))
         self.font_size_spin.setValue(int(config.font.size))
         self.font_color_edit.setText(self._loaded_default_font_color)
@@ -284,6 +313,7 @@ class SettingsWindow(QDialog):
 
     def _emit_save(self) -> None:
         self._stash_current_preset_font_color()
+        self._stash_current_preset_always_on_top()
         font_color_raw = self.font_color_edit.text().strip() or "#FFFFFFFF"
         shadow_color_raw = self.shadow_color_edit.text().strip() or "#000000FF"
         font_color = self._parse_color(font_color_raw)
@@ -304,6 +334,7 @@ class SettingsWindow(QDialog):
             offset_seconds=float(self.offset_spin.value()),
             language=self.language_combo.currentText().strip() or "PT-BR",
             layout_preset=str(self.layout_preset_combo.currentData() or LayoutPreset.DETAILED.value),
+            always_on_top=bool(self.always_on_top_check.isChecked()),
             click_through=bool(self.click_through_check.isChecked()),
             snap_to_taskbar=bool(self.snap_check.isChecked()),
         )

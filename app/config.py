@@ -72,6 +72,7 @@ class OverlayConfig:
     snap_to_taskbar: bool = True
     snap_threshold: int = 20
     always_on_top: bool = True
+    always_on_top_by_preset: dict[str, bool] = field(default_factory=dict)
     layout_preset: str = "detailed"
     positions: dict[str, dict[str, int]] = field(default_factory=dict)
 
@@ -160,6 +161,17 @@ class AppConfig:
         if not value:
             return
         self.font.preset_colors[preset] = value
+
+    def get_preset_always_on_top(self, layout_preset: str | None) -> bool:
+        preset = normalize_layout_preset(layout_preset)
+        raw = self.overlay.always_on_top_by_preset.get(preset)
+        if isinstance(raw, bool):
+            return raw
+        return bool(self.overlay.always_on_top)
+
+    def set_preset_always_on_top(self, layout_preset: str | None, enabled: bool) -> None:
+        preset = normalize_layout_preset(layout_preset)
+        self.overlay.always_on_top_by_preset[preset] = bool(enabled)
 
     def position_key(
         self,
