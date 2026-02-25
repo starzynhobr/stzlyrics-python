@@ -22,6 +22,7 @@ from app.services.lrclib_client import (
 )
 from app.services.lyrics_sync import LyricsSynchronizer, parse_lrc
 from app.services.media_session import MediaSessionService, MediaState
+from app.services.windows_startup import is_startup_enabled, is_supported as startup_is_supported, set_startup_enabled
 from app.ui.overlay_window import OverlayWindow, PositionPayload
 from app.ui.settings_window import SettingsValues, SettingsWindow
 from app.ui.system_tray import TrayController
@@ -1170,6 +1171,7 @@ class AppController(QObject):
         )
 
     def _open_settings_window(self) -> None:
+        self._sync_startup_setting_from_system()
         if self._settings_window is None:
             self._settings_window = SettingsWindow(self.config)
             self._settings_window.save_requested.connect(self._save_from_settings)
@@ -1184,6 +1186,7 @@ class AppController(QObject):
         if not isinstance(payload_obj, SettingsValues):
             return
         previous_preset = str(getattr(self.config.overlay, "layout_preset", "") or "")
+        startup_applied_state = self._apply_startup_setting(payload_obj.start_with_windows)
         self.config.font.family = payload_obj.font_family
         self.config.font.size = int(payload_obj.font_size)
         self.config.font.color = payload_obj.font_color
@@ -1194,12 +1197,39 @@ class AppController(QObject):
         self.config.lyrics.language = payload_obj.language
         self.config.overlay.layout_preset = payload_obj.layout_preset
         self.config.overlay.context_animation_style = payload_obj.context_animation_style
+        self.config.overlay.start_with_windows = (
+            bool(payload_obj.start_with_windows)
+            if startup_applied_state is None
+            else bool(startup_applied_state)
+        )
         self.config.overlay.always_on_top = bool(payload_obj.always_on_top)
         self.config.set_preset_always_on_top(payload_obj.layout_preset, payload_obj.always_on_top)
         self.config.overlay.click_through = bool(payload_obj.click_through)
         self.config.overlay.snap_to_taskbar = bool(payload_obj.snap_to_taskbar)
 
         save_config(self.paths, self.config)
+
+    def _sync_startup_setting_from_system(self) -> None:
+        if not startup_is_supported():
+            return
+        try:
+            self.config.overlay.start_with_windows = bool(is_startup_enabled())
+        except Exception:
+            self.logger.exception("Failed to query Windows startup (HKCU Run) state")
+
+    def _apply_startup_setting(self, enabled: bool) -> bool | None:
+        if not startup_is_supported():
+            return None
+        try:
+            ok = set_startup_enabled(bool(enabled))
+            if not ok and enabled:
+                self.logger.warning("Failed to enable Windows startup registration")
+            if not ok and (not enabled):
+                self.logger.warning("Failed to disable Windows startup registration")
+            return bool(is_startup_enabled())
+        except Exception:
+            self.logger.exception("Failed to update Windows startup (HKCU Run) state")
+            return None
         self._apply_ui_language()
         self.overlay.apply_config(self.config)
         if str(self.config.overlay.layout_preset or "") != previous_preset:

@@ -55,6 +55,7 @@ class SettingsValues:
     language: str
     layout_preset: str
     context_animation_style: str
+    start_with_windows: bool
     always_on_top: bool
     click_through: bool
     snap_to_taskbar: bool
@@ -100,6 +101,7 @@ class SettingsWindow(QDialog):
         self.context_anim_style_combo = _NoWheelComboBox()
 
         self.always_on_top_check = QCheckBox()
+        self.start_with_windows_check = QCheckBox()
         self.click_through_check = QCheckBox()
         self.snap_check = QCheckBox()
 
@@ -115,6 +117,7 @@ class SettingsWindow(QDialog):
         self._blank_label_2 = QLabel("")
         self._blank_label_3 = QLabel("")
         self._blank_label_4 = QLabel("")
+        self._blank_label_5 = QLabel("")
 
         font_color_row = self._build_color_row(self.font_color_edit, self.font_color_pick_button)
         shadow_color_row = self._build_color_row(self.shadow_color_edit, self.shadow_color_pick_button)
@@ -129,6 +132,7 @@ class SettingsWindow(QDialog):
         self.form.addRow(self._label_language, self.language_combo)
         self.form.addRow(self._label_mode_preset, self.layout_preset_combo)
         self.form.addRow(self._label_context_animation, self.context_anim_style_combo)
+        self.form.addRow(self._blank_label_5, self.start_with_windows_check)
         self.form.addRow(self._blank_label_4, self.always_on_top_check)
         self.form.addRow(self._blank_label_2, self.click_through_check)
         self.form.addRow(self._blank_label_3, self.snap_check)
@@ -266,6 +270,7 @@ class SettingsWindow(QDialog):
         self.shadow_color_pick_button.setText(self._tr("pick_color"))
         self.shadow_enabled_check.setText(self._tr("shadow_enabled"))
         self.always_on_top_check.setText(self._tr("always_on_top"))
+        self.start_with_windows_check.setText(self._tr("start_with_windows"))
         self.click_through_check.setText(self._tr("click_through"))
         self.snap_check.setText(self._tr("snap_to_taskbar"))
         self.save_button.setText(self._tr("save"))
@@ -337,6 +342,7 @@ class SettingsWindow(QDialog):
         anim_idx = self.context_anim_style_combo.findData(anim_style)
         self.context_anim_style_combo.setCurrentIndex(max(0, anim_idx))
         self._sync_context_animation_visibility()
+        self.start_with_windows_check.setChecked(bool(getattr(config.overlay, "start_with_windows", False)))
         self.click_through_check.setChecked(bool(config.overlay.click_through))
         self.snap_check.setChecked(bool(config.overlay.snap_to_taskbar))
 
@@ -366,6 +372,7 @@ class SettingsWindow(QDialog):
             context_animation_style=normalize_context_animation_style(
                 str(self.context_anim_style_combo.currentData() or ContextAnimationStyle.SLIDE.value)
             ),
+            start_with_windows=bool(self.start_with_windows_check.isChecked()),
             always_on_top=bool(self.always_on_top_check.isChecked()),
             click_through=bool(self.click_through_check.isChecked()),
             snap_to_taskbar=bool(self.snap_check.isChecked()),

@@ -74,6 +74,7 @@ class OverlayConfig:
     always_on_top: bool = True
     always_on_top_by_preset: dict[str, bool] = field(default_factory=dict)
     context_animation_style: str = "slide"
+    start_with_windows: bool = False
     layout_preset: str = "detailed"
     positions: dict[str, dict[str, int]] = field(default_factory=dict)
 
