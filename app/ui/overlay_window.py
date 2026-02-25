@@ -9,7 +9,7 @@ from PySide6.QtGui import QColor, QFont, QFontMetrics, QGuiApplication, QMouseEv
 from PySide6.QtWidgets import QWidget
 
 from app.config import AppConfig
-from app.layout_presets import build_layout_render_model
+from app.layout_presets import build_layout_render_model, normalize_context_animation_style
 from app.ui.color_utils import qcolor_from_rgba_hex
 from app.ui.windows_api import WinRect, set_click_through, set_window_topmost, snap_position
 
@@ -62,6 +62,7 @@ class OverlayWindow(QWidget):
         self._context_prev_slot = 0
         self._context_anim_started_at = 0.0
         self._context_anim_direction = 0
+        self._context_anim_style = "slide_fade"
         self._click_through = bool(config.overlay.click_through)
         self._snap_enabled = bool(config.overlay.snap_to_taskbar)
         self._dragging = False
@@ -92,6 +93,9 @@ class OverlayWindow(QWidget):
         self._snap_enabled = bool(config.overlay.snap_to_taskbar)
         self._always_on_top_enabled = bool(
             config.get_preset_always_on_top(getattr(config.overlay, "layout_preset", ""))
+        )
+        self._context_anim_style = normalize_context_animation_style(
+            getattr(config.overlay, "context_animation_style", "slide_fade")
         )
         self._apply_qt_topmost_flag()
         self.apply_layout_preset(getattr(self._config.overlay, "layout_preset", "detailed"))
@@ -233,7 +237,10 @@ class OverlayWindow(QWidget):
         self._context_anchor_index = int(anchor_index)
         self._lyric_text = sanitized[slot] or ""
 
-        animate = bool(getattr(self._layout_model, "animate_context_transition", False))
+        animate = (
+            bool(getattr(self._layout_model, "animate_context_transition", False))
+            and self._context_anim_style != "none"
+        )
         duration_ms = int(getattr(self._layout_model, "context_anim_duration_ms", 220) or 220)
         delta_idx = self._context_anchor_index - prev_anchor
         if (
@@ -575,10 +582,15 @@ class OverlayWindow(QWidget):
         line_height = max(1, fm.height())
         pitch = line_height + max(0, int(getattr(self._layout_model, "context_line_gap", 4) or 0))
         if self._context_prev_lines is not None and self._context_anim_direction in (-1, 1) and progress < 1.0:
+            anim_style = normalize_context_animation_style(self._context_anim_style)
+            use_slide = anim_style in ("slide", "slide_fade")
+            use_fade = anim_style in ("fade", "slide_fade")
             visual_sign = -1 if self._context_anim_direction > 0 else 1
             step = float(pitch)
-            old_offset = visual_sign * progress * step
-            new_offset = (-visual_sign) * (1.0 - progress) * step
+            old_offset = (visual_sign * progress * step) if use_slide else 0.0
+            new_offset = ((-visual_sign) * (1.0 - progress) * step) if use_slide else 0.0
+            old_opacity = max(0.0, 1.0 - progress) if use_fade else 1.0
+            new_opacity = min(1.0, 0.25 + (0.75 * progress)) if use_fade else 1.0
             self._draw_context_block(
                 painter,
                 rect=rect,
@@ -586,7 +598,7 @@ class OverlayWindow(QWidget):
                 lines=self._context_prev_lines,
                 current_slot=self._context_prev_slot,
                 y_offset=old_offset,
-                block_opacity=max(0.0, 1.0 - progress),
+                block_opacity=old_opacity,
             )
             self._draw_context_block(
                 painter,
@@ -595,7 +607,7 @@ class OverlayWindow(QWidget):
                 lines=lines,
                 current_slot=self._context_current_slot,
                 y_offset=new_offset,
-                block_opacity=min(1.0, 0.25 + (0.75 * progress)),
+                block_opacity=new_opacity,
             )
         else:
             self._draw_context_block(

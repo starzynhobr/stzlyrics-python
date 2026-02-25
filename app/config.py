@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from app.layout_presets import normalize_layout_preset
+from app.layout_presets import normalize_context_animation_style, normalize_layout_preset
 
 APP_NAME = "STZLyricsOverlay"
 
@@ -73,6 +73,7 @@ class OverlayConfig:
     snap_threshold: int = 20
     always_on_top: bool = True
     always_on_top_by_preset: dict[str, bool] = field(default_factory=dict)
+    context_animation_style: str = "slide"
     layout_preset: str = "detailed"
     positions: dict[str, dict[str, int]] = field(default_factory=dict)
 
@@ -143,6 +144,9 @@ class AppConfig:
             clock=cls._merge_dataclass(ClockConfig, raw.get("clock", {})),
         )
         config.overlay.layout_preset = normalize_layout_preset(config.overlay.layout_preset)
+        config.overlay.context_animation_style = normalize_context_animation_style(
+            getattr(config.overlay, "context_animation_style", "slide")
+        )
         return config
 
     def to_dict(self) -> dict[str, Any]:

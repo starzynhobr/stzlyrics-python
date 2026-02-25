@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 
 from app.config import AppConfig
 from app.i18n import normalize_ui_language, tr_settings_ui
-from app.layout_presets import LayoutPreset, normalize_layout_preset
+from app.layout_presets import ContextAnimationStyle, LayoutPreset, normalize_context_animation_style, normalize_layout_preset
 from app.ui.color_utils import normalize_rgba_hex, parse_rgba_hex, qcolor_from_rgba_hex, rgba_hex_from_qcolor
 
 
@@ -54,6 +54,7 @@ class SettingsValues:
     offset_seconds: float
     language: str
     layout_preset: str
+    context_animation_style: str
     always_on_top: bool
     click_through: bool
     snap_to_taskbar: bool
@@ -96,6 +97,7 @@ class SettingsWindow(QDialog):
         self.language_combo = _NoWheelComboBox()
         self.language_combo.addItems(SUPPORTED_LANGUAGES)
         self.layout_preset_combo = _NoWheelComboBox()
+        self.context_anim_style_combo = _NoWheelComboBox()
 
         self.always_on_top_check = QCheckBox()
         self.click_through_check = QCheckBox()
@@ -108,6 +110,7 @@ class SettingsWindow(QDialog):
         self._label_offset_seconds = QLabel("")
         self._label_language = QLabel("")
         self._label_mode_preset = QLabel("")
+        self._label_context_animation = QLabel("")
         self._blank_label_1 = QLabel("")
         self._blank_label_2 = QLabel("")
         self._blank_label_3 = QLabel("")
@@ -125,6 +128,7 @@ class SettingsWindow(QDialog):
         self.form.addRow(self._label_offset_seconds, self.offset_spin)
         self.form.addRow(self._label_language, self.language_combo)
         self.form.addRow(self._label_mode_preset, self.layout_preset_combo)
+        self.form.addRow(self._label_context_animation, self.context_anim_style_combo)
         self.form.addRow(self._blank_label_4, self.always_on_top_check)
         self.form.addRow(self._blank_label_2, self.click_through_check)
         self.form.addRow(self._blank_label_3, self.snap_check)
@@ -214,6 +218,7 @@ class SettingsWindow(QDialog):
         self._stash_current_preset_font_color()
         self._stash_current_preset_always_on_top()
         self._apply_font_color_for_selected_preset()
+        self._sync_context_animation_visibility()
 
     def _refresh_layout_preset_combo_items(self) -> None:
         current_value = str(self.layout_preset_combo.currentData() or LayoutPreset.DETAILED.value)
@@ -230,6 +235,23 @@ class SettingsWindow(QDialog):
         finally:
             self._preset_switch_internal = False
 
+    def _refresh_context_anim_style_combo_items(self) -> None:
+        current_value = str(self.context_anim_style_combo.currentData() or ContextAnimationStyle.SLIDE.value)
+        self.context_anim_style_combo.blockSignals(True)
+        self.context_anim_style_combo.clear()
+        self.context_anim_style_combo.addItem(self._tr("anim_style_slide"), ContextAnimationStyle.SLIDE.value)
+        self.context_anim_style_combo.addItem(self._tr("anim_style_slide_fade"), ContextAnimationStyle.SLIDE_FADE.value)
+        self.context_anim_style_combo.addItem(self._tr("anim_style_fade"), ContextAnimationStyle.FADE.value)
+        self.context_anim_style_combo.addItem(self._tr("anim_style_none"), ContextAnimationStyle.NONE.value)
+        idx = self.context_anim_style_combo.findData(normalize_context_animation_style(current_value))
+        self.context_anim_style_combo.setCurrentIndex(max(0, idx))
+        self.context_anim_style_combo.blockSignals(False)
+
+    def _sync_context_animation_visibility(self) -> None:
+        is_context_preset = self._current_preset_value() == LayoutPreset.CONTEXT_2_2.value
+        self._label_context_animation.setVisible(is_context_preset)
+        self.context_anim_style_combo.setVisible(is_context_preset)
+
     def _apply_localized_texts(self) -> None:
         self.setWindowTitle(self._tr("window_title"))
         self._label_font.setText(self._tr("label_font"))
@@ -239,6 +261,7 @@ class SettingsWindow(QDialog):
         self._label_offset_seconds.setText(self._tr("label_offset_seconds"))
         self._label_language.setText(self._tr("label_language"))
         self._label_mode_preset.setText(self._tr("label_mode_preset"))
+        self._label_context_animation.setText(self._tr("label_context_animation"))
         self.font_color_pick_button.setText(self._tr("pick_color"))
         self.shadow_color_pick_button.setText(self._tr("pick_color"))
         self.shadow_enabled_check.setText(self._tr("shadow_enabled"))
@@ -248,6 +271,8 @@ class SettingsWindow(QDialog):
         self.save_button.setText(self._tr("save"))
         self.cancel_button.setText(self._tr("close"))
         self._refresh_layout_preset_combo_items()
+        self._refresh_context_anim_style_combo_items()
+        self._sync_context_animation_visibility()
 
     def _clear_validation(self) -> None:
         self.validation_label.setText("")
@@ -308,6 +333,10 @@ class SettingsWindow(QDialog):
             self._preset_switch_internal = False
         self._active_preset_for_font_color = preset_value
         self._apply_font_color_for_selected_preset()
+        anim_style = normalize_context_animation_style(getattr(config.overlay, "context_animation_style", "slide"))
+        anim_idx = self.context_anim_style_combo.findData(anim_style)
+        self.context_anim_style_combo.setCurrentIndex(max(0, anim_idx))
+        self._sync_context_animation_visibility()
         self.click_through_check.setChecked(bool(config.overlay.click_through))
         self.snap_check.setChecked(bool(config.overlay.snap_to_taskbar))
 
@@ -334,6 +363,9 @@ class SettingsWindow(QDialog):
             offset_seconds=float(self.offset_spin.value()),
             language=self.language_combo.currentText().strip() or "PT-BR",
             layout_preset=str(self.layout_preset_combo.currentData() or LayoutPreset.DETAILED.value),
+            context_animation_style=normalize_context_animation_style(
+                str(self.context_anim_style_combo.currentData() or ContextAnimationStyle.SLIDE.value)
+            ),
             always_on_top=bool(self.always_on_top_check.isChecked()),
             click_through=bool(self.click_through_check.isChecked()),
             snap_to_taskbar=bool(self.snap_check.isChecked()),

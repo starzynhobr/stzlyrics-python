@@ -10,6 +10,13 @@ class LayoutPreset(str, Enum):
     CONTEXT_2_2 = "context_2_2"  # placeholder for future preset
 
 
+class ContextAnimationStyle(str, Enum):
+    NONE = "none"
+    FADE = "fade"
+    SLIDE = "slide"
+    SLIDE_FADE = "slide_fade"
+
+
 @dataclass(frozen=True, slots=True)
 class LayoutRenderModel:
     preset: LayoutPreset
@@ -30,6 +37,17 @@ def normalize_layout_preset(value: str | None) -> str:
     if raw == LayoutPreset.CONTEXT_2_2.value:
         return LayoutPreset.CONTEXT_2_2.value
     return LayoutPreset.DETAILED.value
+
+
+def normalize_context_animation_style(value: str | None) -> str:
+    raw = (value or "").strip().lower()
+    if raw == ContextAnimationStyle.NONE.value:
+        return ContextAnimationStyle.NONE.value
+    if raw == ContextAnimationStyle.FADE.value:
+        return ContextAnimationStyle.FADE.value
+    if raw == ContextAnimationStyle.SLIDE.value:
+        return ContextAnimationStyle.SLIDE.value
+    return ContextAnimationStyle.SLIDE.value
 
 
 def build_layout_render_model(preset_value: str | None) -> LayoutRenderModel:

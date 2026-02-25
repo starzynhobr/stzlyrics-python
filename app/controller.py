@@ -1193,6 +1193,7 @@ class AppController(QObject):
         self.config.lyrics.offset_seconds = float(payload_obj.offset_seconds)
         self.config.lyrics.language = payload_obj.language
         self.config.overlay.layout_preset = payload_obj.layout_preset
+        self.config.overlay.context_animation_style = payload_obj.context_animation_style
         self.config.overlay.always_on_top = bool(payload_obj.always_on_top)
         self.config.set_preset_always_on_top(payload_obj.layout_preset, payload_obj.always_on_top)
         self.config.overlay.click_through = bool(payload_obj.click_through)
