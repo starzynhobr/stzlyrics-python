@@ -56,6 +56,7 @@ class FontConfig:
     family: str = "Segoe UI"
     size: int = 28
     color: str = "#FFFFFF"
+    preset_colors: dict[str, str] = field(default_factory=dict)
     track_size: int = 12
     track_color: str = "#C8C8C8"
     shadow: ShadowConfig = field(default_factory=ShadowConfig)
@@ -146,14 +147,33 @@ class AppConfig:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+    def get_preset_font_color(self, layout_preset: str | None) -> str:
+        preset = normalize_layout_preset(layout_preset)
+        raw = self.font.preset_colors.get(preset)
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+        return str(self.font.color)
+
+    def set_preset_font_color(self, layout_preset: str | None, color: str) -> None:
+        preset = normalize_layout_preset(layout_preset)
+        value = str(color or "").strip()
+        if not value:
+            return
+        self.font.preset_colors[preset] = value
+
     def position_key(
         self,
         screen_name: str,
         scale_percent: int,
         screen_width: int,
         screen_height: int,
+        layout_preset: str | None = None,
     ) -> str:
-        return f"{screen_name}|{scale_percent}|{screen_width}x{screen_height}"
+        base = f"{screen_name}|{scale_percent}|{screen_width}x{screen_height}"
+        preset = (layout_preset or "").strip().lower()
+        if not preset:
+            return base
+        return f"{base}|{preset}"
 
     def get_saved_position(
         self,
@@ -161,9 +181,22 @@ class AppConfig:
         scale_percent: int,
         screen_width: int,
         screen_height: int,
+        layout_preset: str | None = None,
     ) -> tuple[int, int] | None:
-        key = self.position_key(screen_name, scale_percent, screen_width, screen_height)
-        pos = self.overlay.positions.get(key)
+        pos = None
+        if layout_preset:
+            preset_key = self.position_key(
+                screen_name,
+                scale_percent,
+                screen_width,
+                screen_height,
+                layout_preset=layout_preset,
+            )
+            pos = self.overlay.positions.get(preset_key)
+        if not pos:
+            # Backward-compatible fallback for configs saved before per-preset positions.
+            legacy_key = self.position_key(screen_name, scale_percent, screen_width, screen_height)
+            pos = self.overlay.positions.get(legacy_key)
         if not pos:
             return None
         if "x" not in pos or "y" not in pos:
@@ -178,8 +211,15 @@ class AppConfig:
         screen_height: int,
         x: int,
         y: int,
+        layout_preset: str | None = None,
     ) -> None:
-        key = self.position_key(screen_name, scale_percent, screen_width, screen_height)
+        key = self.position_key(
+            screen_name,
+            scale_percent,
+            screen_width,
+            screen_height,
+            layout_preset=layout_preset,
+        )
         self.overlay.positions[key] = {"x": int(x), "y": int(y)}
 
 

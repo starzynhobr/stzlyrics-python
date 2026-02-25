@@ -65,6 +65,11 @@ class SettingsWindow(QDialog):
         super().__init__(parent)
         self.setModal(False)
         self.setMinimumWidth(420)
+        self._preset_font_color_drafts: dict[str, str] = {}
+        self._loaded_preset_font_colors: dict[str, str] = {}
+        self._loaded_default_font_color = "#FFFFFFFF"
+        self._active_preset_for_font_color = LayoutPreset.DETAILED.value
+        self._preset_switch_internal = False
 
         self.validation_label = QLabel("")
         self.validation_label.setStyleSheet("color: #ff8080;")
@@ -136,6 +141,7 @@ class SettingsWindow(QDialog):
         self.font_color_edit.textChanged.connect(self._clear_validation)
         self.shadow_color_edit.textChanged.connect(self._clear_validation)
         self.language_combo.currentTextChanged.connect(lambda *_: self._apply_localized_texts())
+        self.layout_preset_combo.currentIndexChanged.connect(self._on_layout_preset_changed)
 
         self._apply_localized_texts()
         self.load_from_config(config)
@@ -154,16 +160,54 @@ class SettingsWindow(QDialog):
     def _tr(self, key: str) -> str:
         return tr_settings_ui(self._ui_language(), key)
 
+    def _current_preset_value(self) -> str:
+        return normalize_layout_preset(str(self.layout_preset_combo.currentData() or LayoutPreset.DETAILED.value))
+
+    def _normalized_color_text(self, value: str, fallback: str = "#FFFFFFFF") -> str:
+        return normalize_rgba_hex(str(value or ""), fallback)
+
+    def _resolved_font_color_for_preset(self, preset_value: str) -> str:
+        preset_key = normalize_layout_preset(preset_value)
+        draft = self._preset_font_color_drafts.get(preset_key)
+        if isinstance(draft, str) and draft.strip():
+            return self._normalized_color_text(draft, self._loaded_default_font_color)
+        stored = self._loaded_preset_font_colors.get(preset_key)
+        if isinstance(stored, str) and stored.strip():
+            return self._normalized_color_text(stored, self._loaded_default_font_color)
+        return self._normalized_color_text(self._loaded_default_font_color, "#FFFFFFFF")
+
+    def _stash_current_preset_font_color(self) -> None:
+        preset_key = normalize_layout_preset(self._active_preset_for_font_color)
+        self._preset_font_color_drafts[preset_key] = self._normalized_color_text(
+            self.font_color_edit.text().strip() or self._loaded_default_font_color,
+            self._loaded_default_font_color,
+        )
+
+    def _apply_font_color_for_selected_preset(self) -> None:
+        preset_key = self._current_preset_value()
+        self._active_preset_for_font_color = preset_key
+        self.font_color_edit.setText(self._resolved_font_color_for_preset(preset_key))
+
+    def _on_layout_preset_changed(self, *_args) -> None:
+        if self._preset_switch_internal:
+            return
+        self._stash_current_preset_font_color()
+        self._apply_font_color_for_selected_preset()
+
     def _refresh_layout_preset_combo_items(self) -> None:
         current_value = str(self.layout_preset_combo.currentData() or LayoutPreset.DETAILED.value)
-        self.layout_preset_combo.blockSignals(True)
-        self.layout_preset_combo.clear()
-        self.layout_preset_combo.addItem(self._tr("preset_minimal"), LayoutPreset.MINIMAL.value)
-        self.layout_preset_combo.addItem(self._tr("preset_detailed"), LayoutPreset.DETAILED.value)
-        self.layout_preset_combo.addItem(self._tr("preset_context_2_2"), LayoutPreset.CONTEXT_2_2.value)
-        idx = self.layout_preset_combo.findData(current_value)
-        self.layout_preset_combo.setCurrentIndex(max(0, idx))
-        self.layout_preset_combo.blockSignals(False)
+        self._preset_switch_internal = True
+        try:
+            self.layout_preset_combo.blockSignals(True)
+            self.layout_preset_combo.clear()
+            self.layout_preset_combo.addItem(self._tr("preset_minimal"), LayoutPreset.MINIMAL.value)
+            self.layout_preset_combo.addItem(self._tr("preset_detailed"), LayoutPreset.DETAILED.value)
+            self.layout_preset_combo.addItem(self._tr("preset_context_2_2"), LayoutPreset.CONTEXT_2_2.value)
+            idx = self.layout_preset_combo.findData(current_value)
+            self.layout_preset_combo.setCurrentIndex(max(0, idx))
+            self.layout_preset_combo.blockSignals(False)
+        finally:
+            self._preset_switch_internal = False
 
     def _apply_localized_texts(self) -> None:
         self.setWindowTitle(self._tr("window_title"))
@@ -206,9 +250,16 @@ class SettingsWindow(QDialog):
         return rgba_hex_from_qcolor(color)
 
     def load_from_config(self, config: AppConfig) -> None:
+        self._loaded_default_font_color = self._normalized_color_text(str(config.font.color), "#FFFFFFFF")
+        self._loaded_preset_font_colors = {
+            normalize_layout_preset(str(k)): self._normalized_color_text(str(v), self._loaded_default_font_color)
+            for k, v in getattr(config.font, "preset_colors", {}).items()
+            if isinstance(k, str) and isinstance(v, str)
+        }
+        self._preset_font_color_drafts = dict(self._loaded_preset_font_colors)
         self.font_family_edit.setText(str(config.font.family))
         self.font_size_spin.setValue(int(config.font.size))
-        self.font_color_edit.setText(normalize_rgba_hex(str(config.font.color), "#FFFFFFFF"))
+        self.font_color_edit.setText(self._loaded_default_font_color)
         self.shadow_enabled_check.setChecked(bool(config.font.shadow.enabled))
         self.shadow_color_edit.setText(normalize_rgba_hex(str(config.font.shadow.color), "#000000FF"))
         self.offset_spin.setValue(float(config.lyrics.offset_seconds))
@@ -220,12 +271,19 @@ class SettingsWindow(QDialog):
         self.language_combo.setCurrentIndex(max(0, idx))
         self._apply_localized_texts()
         preset_value = normalize_layout_preset(getattr(config.overlay, "layout_preset", LayoutPreset.DETAILED.value))
-        preset_idx = self.layout_preset_combo.findData(preset_value)
-        self.layout_preset_combo.setCurrentIndex(max(0, preset_idx))
+        self._preset_switch_internal = True
+        try:
+            preset_idx = self.layout_preset_combo.findData(preset_value)
+            self.layout_preset_combo.setCurrentIndex(max(0, preset_idx))
+        finally:
+            self._preset_switch_internal = False
+        self._active_preset_for_font_color = preset_value
+        self._apply_font_color_for_selected_preset()
         self.click_through_check.setChecked(bool(config.overlay.click_through))
         self.snap_check.setChecked(bool(config.overlay.snap_to_taskbar))
 
     def _emit_save(self) -> None:
+        self._stash_current_preset_font_color()
         font_color_raw = self.font_color_edit.text().strip() or "#FFFFFFFF"
         shadow_color_raw = self.shadow_color_edit.text().strip() or "#000000FF"
         font_color = self._parse_color(font_color_raw)

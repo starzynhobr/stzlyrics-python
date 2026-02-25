@@ -1183,9 +1183,11 @@ class AppController(QObject):
     def _save_from_settings(self, payload_obj: object) -> None:
         if not isinstance(payload_obj, SettingsValues):
             return
+        previous_preset = str(getattr(self.config.overlay, "layout_preset", "") or "")
         self.config.font.family = payload_obj.font_family
         self.config.font.size = int(payload_obj.font_size)
         self.config.font.color = payload_obj.font_color
+        self.config.set_preset_font_color(payload_obj.layout_preset, payload_obj.font_color)
         self.config.font.shadow.enabled = bool(payload_obj.shadow_enabled)
         self.config.font.shadow.color = payload_obj.shadow_color
         self.config.lyrics.offset_seconds = float(payload_obj.offset_seconds)
@@ -1197,6 +1199,8 @@ class AppController(QObject):
         save_config(self.paths, self.config)
         self._apply_ui_language()
         self.overlay.apply_config(self.config)
+        if str(self.config.overlay.layout_preset or "") != previous_preset:
+            self.overlay.restore_position()
         self.overlay.set_status_hint(self._tr("status_config_saved"))
         QTimer.singleShot(1500, lambda: self.overlay.set_status_hint(""))
 
@@ -1210,5 +1214,6 @@ class AppController(QObject):
             screen_height=payload_obj.screen_height,
             x=payload_obj.x,
             y=payload_obj.y,
+            layout_preset=getattr(self.config.overlay, "layout_preset", ""),
         )
         save_config(self.paths, self.config)

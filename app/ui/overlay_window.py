@@ -92,10 +92,13 @@ class OverlayWindow(QWidget):
         self.apply_layout_preset(getattr(self._config.overlay, "layout_preset", "detailed"))
         self._debug_clock_overlay_enabled = bool(getattr(self._config.clock, "debug_clock_overlay", False))
         self._track_color = _safe_color(self._config.font.track_color, "#C8C8C8FF")
-        self._lyric_color = _safe_color(self._config.font.color, "#FFFFFFFF")
+        self._lyric_color = _safe_color(
+            self._config.get_preset_font_color(getattr(self._config.overlay, "layout_preset", "")),
+            "#FFFFFFFF",
+        )
         self._shadow_color = _safe_color(self._config.font.shadow.color, "#000000FF")
         self._log_color_application()
-        self.resize(int(config.overlay.width), int(config.overlay.height))
+        self._apply_overlay_size()
         self.update()
         self.apply_click_through()
         self._ensure_topmost_if_needed()
@@ -104,9 +107,32 @@ class OverlayWindow(QWidget):
     def apply_layout_preset(self, preset: str) -> None:
         self._layout_model = build_layout_render_model(preset)
         logger.info("Applying layout preset preset=%s", self._layout_model.preset.value)
+        self._apply_overlay_size()
         if not self.lyric_context_request():
             self._clear_lyric_context()
         self.update()
+
+    def _apply_overlay_size(self) -> None:
+        width = int(getattr(self._config.overlay, "width", self.width() or 0))
+        base_height = int(getattr(self._config.overlay, "height", self.height() or 0))
+        min_height = self._minimum_height_for_current_layout()
+        height = max(base_height, min_height)
+        self.resize(max(1, width), max(1, height))
+
+    def _minimum_height_for_current_layout(self) -> int:
+        before = max(0, int(getattr(self._layout_model, "context_before", 0) or 0))
+        after = max(0, int(getattr(self._layout_model, "context_after", 0) or 0))
+        if before <= 0 and after <= 0:
+            return 0
+        total_lines = before + 1 + after
+        lyric_font = QFont(self._config.font.family, int(self._config.font.size))
+        lyric_line_height = max(1, QFontMetrics(lyric_font).height())
+        line_gap = max(0, int(getattr(self._layout_model, "context_line_gap", 4) or 0))
+        content_height = (lyric_line_height * total_lines) + (line_gap * max(0, total_lines - 1))
+        pad_y = int(getattr(self._config.overlay, "padding_y", 0))
+        header_height = int(self._layout_model.header_height) if self._layout_model.show_header else 0
+        header_gap = int(self._layout_model.header_gap) if self._layout_model.show_header else 0
+        return (pad_y * 2) + header_height + header_gap + content_height + 2
 
     def _log_color_application(self) -> None:
         logger.info(
@@ -325,6 +351,7 @@ class OverlayWindow(QWidget):
             scale_percent,
             geo.width(),
             geo.height(),
+            layout_preset=getattr(self._config.overlay, "layout_preset", ""),
         )
         if saved is None:
             self.move_default_near_taskbar()
