@@ -81,7 +81,7 @@ class OverlayConfig:
 
 @dataclass
 class LyricsConfig:
-    offset_seconds: float = 0.0
+    offset_seconds: float = 0.10
     update_interval_ms: int = 300
     fallback_unsynced_text: str = "Sem letra sincronizada"
     language: str = "PT-BR"
@@ -89,7 +89,7 @@ class LyricsConfig:
 
 @dataclass
 class CacheConfig:
-    max_entries: int = 100
+    max_entries: int = 500
 
 
 @dataclass
@@ -255,7 +255,12 @@ def load_config(paths: AppPaths) -> AppConfig:
         raw = json.loads(paths.config_file.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
             raise ValueError("config root must be an object")
-        return AppConfig.from_dict(raw)
+        cfg = AppConfig.from_dict(raw)
+        cache_raw = raw.get("cache", {}) if isinstance(raw.get("cache", {}), dict) else {}
+        if cache_raw.get("max_entries") == 100:
+            cfg.cache.max_entries = 500
+            save_config(paths, cfg)
+        return cfg
     except Exception:
         cfg = default_config()
         save_config(paths, cfg)

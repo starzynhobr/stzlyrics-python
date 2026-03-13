@@ -13,6 +13,7 @@ from app.ui.app_icon import load_tray_icon
 class TrayController(QObject):
     open_settings_requested = Signal()
     open_cache_requested = Signal()
+    reload_current_lyrics_requested = Signal()
     reload_config_requested = Signal()
     toggle_visible_requested = Signal()
     quit_requested = Signal()
@@ -35,6 +36,10 @@ class TrayController(QObject):
         self.action_open_cache = QAction("", self.menu)
         self.action_open_cache.triggered.connect(self.open_cache_requested.emit)
         self.menu.addAction(self.action_open_cache)
+
+        self.action_reload_current_lyrics = QAction("", self.menu)
+        self.action_reload_current_lyrics.triggered.connect(self.reload_current_lyrics_requested.emit)
+        self.menu.addAction(self.action_reload_current_lyrics)
 
         self.action_reload_config = QAction("", self.menu)
         self.action_reload_config.triggered.connect(self.reload_config_requested.emit)
@@ -64,6 +69,7 @@ class TrayController(QObject):
         self._language_code = language_code or self._language_code
         self.action_settings.setText(tr_ui(self._language_code, "tray_settings"))
         self.action_open_cache.setText(tr_ui(self._language_code, "tray_open_cache"))
+        self.action_reload_current_lyrics.setText(tr_ui(self._language_code, "tray_reload_current_lyrics"))
         self.action_reload_config.setText(tr_ui(self._language_code, "tray_reload_config"))
         self.action_quit.setText(tr_ui(self._language_code, "tray_quit"))
 

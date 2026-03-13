@@ -25,13 +25,13 @@
     "positions": {}
   },
   "lyrics": {
-    "offset_seconds": 0.0,
+    "offset_seconds": 0.1,
     "update_interval_ms": 300,
     "fallback_unsynced_text": "Sem letra sincronizada",
     "language": "PT-BR"
   },
   "cache": {
-    "max_entries": 100
+    "max_entries": 500
   },
   "network": {
     "lrclib_timeout_connect": 3.0,

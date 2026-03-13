@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -63,6 +64,7 @@ class SettingsValues:
 
 class SettingsWindow(QDialog):
     save_requested = Signal(object)  # SettingsValues
+    clear_cache_requested = Signal()
 
     def __init__(self, config: AppConfig, parent=None) -> None:
         super().__init__(parent)
@@ -139,7 +141,9 @@ class SettingsWindow(QDialog):
 
         self.save_button = QPushButton()
         self.cancel_button = QPushButton()
+        self.clear_cache_button = QPushButton()
         buttons = QHBoxLayout()
+        buttons.addWidget(self.clear_cache_button)
         buttons.addStretch(1)
         buttons.addWidget(self.save_button)
         buttons.addWidget(self.cancel_button)
@@ -151,6 +155,7 @@ class SettingsWindow(QDialog):
 
         self.save_button.clicked.connect(self._emit_save)
         self.cancel_button.clicked.connect(self.close)
+        self.clear_cache_button.clicked.connect(self._confirm_clear_cache)
         self.font_color_pick_button.clicked.connect(lambda: self._pick_color_into(self.font_color_edit))
         self.shadow_color_pick_button.clicked.connect(lambda: self._pick_color_into(self.shadow_color_edit))
         self.font_color_edit.textChanged.connect(self._clear_validation)
@@ -273,6 +278,7 @@ class SettingsWindow(QDialog):
         self.start_with_windows_check.setText(self._tr("start_with_windows"))
         self.click_through_check.setText(self._tr("click_through"))
         self.snap_check.setText(self._tr("snap_to_taskbar"))
+        self.clear_cache_button.setText(self._tr("clear_local_cache"))
         self.save_button.setText(self._tr("save"))
         self.cancel_button.setText(self._tr("close"))
         self._refresh_layout_preset_combo_items()
@@ -300,6 +306,17 @@ class SettingsWindow(QDialog):
 
     def _color_to_hex_rgba(self, color: QColor) -> str:
         return rgba_hex_from_qcolor(color)
+
+    def _confirm_clear_cache(self) -> None:
+        answer = QMessageBox.warning(
+            self,
+            self._tr("clear_local_cache_title"),
+            self._tr("clear_local_cache_confirm"),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer == QMessageBox.Yes:
+            self.clear_cache_requested.emit()
 
     def load_from_config(self, config: AppConfig) -> None:
         self._loaded_default_font_color = self._normalized_color_text(str(config.font.color), "#FFFFFFFF")

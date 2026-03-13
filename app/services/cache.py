@@ -167,3 +167,18 @@ class LyricsCache:
             self.max_entries = max(1, int(max_entries))
             self._evict_if_needed()
             self._save_index()
+
+    def clear(self) -> None:
+        with self._lock:
+            self._index = {}
+            for pattern in ("*.lrc", "*.txt"):
+                for file_path in self.cache_dir.glob(pattern):
+                    try:
+                        file_path.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+            try:
+                self.index_file.unlink(missing_ok=True)
+            except Exception:
+                pass
+            self._save_index()

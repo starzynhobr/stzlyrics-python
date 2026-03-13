@@ -396,6 +396,7 @@ class AppController(QObject):
 
         self.tray.open_settings_requested.connect(self._open_settings_window)
         self.tray.open_cache_requested.connect(self._open_cache_folder)
+        self.tray.reload_current_lyrics_requested.connect(self.force_reload_current_track)
         self.tray.reload_config_requested.connect(self._reload_config_from_disk)
         self.tray.toggle_visible_requested.connect(self._toggle_overlay_visibility)
         app = QApplication.instance()
@@ -1175,12 +1176,18 @@ class AppController(QObject):
         if self._settings_window is None:
             self._settings_window = SettingsWindow(self.config)
             self._settings_window.save_requested.connect(self._save_from_settings)
+            self._settings_window.clear_cache_requested.connect(self._clear_local_cache)
             self._settings_window.destroyed.connect(lambda *_: setattr(self, "_settings_window", None))
         else:
             self._settings_window.load_from_config(self.config)
         self._settings_window.show()
         self._settings_window.raise_()
         self._settings_window.activateWindow()
+
+    def _clear_local_cache(self) -> None:
+        self.lyrics_cache.clear()
+        self.overlay.set_status_hint(self._tr("status_cache_cleared"))
+        QTimer.singleShot(1500, lambda: self.overlay.set_status_hint(""))
 
     def _save_from_settings(self, payload_obj: object) -> None:
         if not isinstance(payload_obj, SettingsValues):
