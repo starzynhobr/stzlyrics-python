@@ -6,7 +6,6 @@ import time
 from bisect import bisect_right
 from dataclasses import dataclass, field
 
-
 TIMESTAMP_RE = re.compile(r"\[(\d{1,2}:\d{2}(?:\.\d{1,3})?)\]")
 METADATA_RE = re.compile(r"^\[(ar|ti|al|by|offset):", re.IGNORECASE)
 SEEK_BACKWARD_THRESHOLD_SECONDS = 1.0

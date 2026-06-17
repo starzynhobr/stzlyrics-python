@@ -1,0 +1,163 @@
+/* JaxCore-inspired dark theme for the settings window.
+   Frameless rounded window: #cardFrame is the painted surface, with a custom
+   title bar and a left nav (#navList) switching stacked pages.
+   The {ACCENT} / {ACCENT_HOVER} tokens are replaced at load time. */
+
+QDialog {
+    background: transparent;
+    color: #e7e7ea;
+    font-family: "Segoe UI";
+    font-size: 13px;
+}
+
+QFrame#cardFrame {
+    background: #0e0e11;
+    border: 1px solid #1f1f25;
+    border-radius: 16px;
+}
+
+QWidget#titleBar {
+    background: transparent;
+    border-bottom: 1px solid #1c1c21;
+}
+
+QLabel#titleText {
+    color: #e7e7ea;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+QPushButton#titleMin,
+QPushButton#titleClose {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: #8a8a92;
+    font-size: 15px;
+    padding: 0;
+}
+
+QPushButton#titleMin:hover {
+    background: #1f1f25;
+    color: #e7e7ea;
+}
+
+QPushButton#titleClose:hover {
+    background: #c0392b;
+    color: #ffffff;
+}
+
+QListWidget#navList {
+    background: #0a0a0d;
+    border: 1px solid #1a1a1f;
+    border-radius: 10px;
+    padding: 6px;
+    outline: none;
+}
+
+QListWidget#navList::item {
+    color: #8a8a92;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin: 1px 0;
+    border-left: 2px solid transparent;
+}
+
+QListWidget#navList::item:hover {
+    background: #121217;
+    color: #b9b9c0;
+}
+
+QListWidget#navList::item:selected {
+    background: #17171c;
+    color: #ffffff;
+    border-left: 2px solid {ACCENT};
+}
+
+QLabel {
+    color: #b9b9c0;
+    background: transparent;
+}
+
+QLabel#validationLabel {
+    color: #ff8080;
+}
+
+QGroupBox {
+    background: #141418;
+    border: 1px solid #1f1f25;
+    border-radius: 12px;
+    margin-top: 0;
+    padding: 12px;
+}
+
+QLineEdit,
+QSpinBox,
+QDoubleSpinBox,
+QComboBox {
+    background: #0c0c0f;
+    border: 1px solid #26262d;
+    border-radius: 8px;
+    padding: 6px 9px;
+    color: #e7e7ea;
+    selection-background-color: {ACCENT};
+    selection-color: #1a0a03;
+}
+
+QLineEdit:hover,
+QSpinBox:hover,
+QDoubleSpinBox:hover,
+QComboBox:hover {
+    border: 1px solid #3a3a44;
+}
+
+QLineEdit:focus,
+QSpinBox:focus,
+QDoubleSpinBox:focus,
+QComboBox:focus {
+    border: 1px solid {ACCENT};
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 22px;
+}
+
+QComboBox QAbstractItemView {
+    background: #141418;
+    border: 1px solid #26262d;
+    border-radius: 8px;
+    color: #e7e7ea;
+    selection-background-color: {ACCENT};
+    selection-color: #1a0a03;
+    outline: none;
+}
+
+QPushButton {
+    background: transparent;
+    border: 1px solid #2a2a31;
+    border-radius: 9px;
+    padding: 7px 16px;
+    color: #b9b9c0;
+}
+
+QPushButton:hover {
+    border: 1px solid #3a3a44;
+    color: #e7e7ea;
+}
+
+QPushButton:pressed {
+    background: #17171c;
+}
+
+QPushButton#saveButton {
+    background: {ACCENT};
+    border: 1px solid {ACCENT};
+    color: #1a0a03;
+    font-weight: bold;
+}
+
+QPushButton#saveButton:hover {
+    background: {ACCENT_HOVER};
+    border: 1px solid {ACCENT_HOVER};
+}

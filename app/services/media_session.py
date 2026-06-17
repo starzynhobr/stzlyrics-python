@@ -94,7 +94,7 @@ class MediaState:
         return title or artist
 
     @classmethod
-    def empty(cls) -> "MediaState":
+    def empty(cls) -> MediaState:
         return cls(is_active=False, polled_at=time.time())
 
 

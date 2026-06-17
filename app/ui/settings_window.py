@@ -1,33 +1,71 @@
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
     QColorDialog,
+    QComboBox,
     QDialog,
     QDoubleSpinBox,
     QFormLayout,
+    QFrame,
+    QGraphicsDropShadowEffect,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from app.config import AppConfig
 from app.i18n import normalize_ui_language, tr_settings_ui
-from app.layout_presets import ContextAnimationStyle, LayoutPreset, normalize_context_animation_style, normalize_layout_preset
+from app.layout_presets import (
+    ContextAnimationStyle,
+    LayoutPreset,
+    normalize_context_animation_style,
+    normalize_layout_preset,
+)
 from app.ui.color_utils import normalize_rgba_hex, parse_rgba_hex, qcolor_from_rgba_hex, rgba_hex_from_qcolor
-
+from app.ui.title_bar import TitleBar
+from app.ui.toggle_switch import ToggleSwitch
 
 SUPPORTED_LANGUAGES = ["EN", "PT-BR", "ES", "IT", "DE", "FR", "JP"]
+
+# JaxCore-inspired accent. Kept here so it can later be driven by the user's
+# lyric color; for Phase 1 it is a fixed token injected into the .qss.
+ACCENT_COLOR = "#ff5a1f"
+ACCENT_COLOR_HOVER = "#ff6f3d"
+
+
+def _load_stylesheet() -> str:
+    """Load the dark theme .qss and inject the accent tokens.
+
+    Returns an empty string if the file can't be found (the window still works,
+    just falls back to the default Qt look).
+    """
+    candidates: list[Path] = []
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidates.append(Path(meipass) / "app" / "assets" / "style.qss")
+    candidates.append(Path(__file__).resolve().parents[1] / "assets" / "style.qss")
+    for path in candidates:
+        try:
+            if path.exists():
+                qss = path.read_text(encoding="utf-8")
+                return qss.replace("{ACCENT_HOVER}", ACCENT_COLOR_HOVER).replace("{ACCENT}", ACCENT_COLOR)
+        except Exception:
+            continue
+    return ""
 
 
 class _NoWheelSpinBox(QSpinBox):
@@ -69,7 +107,10 @@ class SettingsWindow(QDialog):
     def __init__(self, config: AppConfig, parent=None) -> None:
         super().__init__(parent)
         self.setModal(False)
-        self.setMinimumWidth(420)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setMinimumSize(560, 470)
+        self._did_center = False
         self._preset_font_color_drafts: dict[str, str] = {}
         self._loaded_preset_font_colors: dict[str, str] = {}
         self._loaded_default_font_color = "#FFFFFFFF"
@@ -80,6 +121,7 @@ class SettingsWindow(QDialog):
         self._preset_switch_internal = False
 
         self.validation_label = QLabel("")
+        self.validation_label.setObjectName("validationLabel")
         self.validation_label.setStyleSheet("color: #ff8080;")
         self.validation_label.setWordWrap(True)
 
@@ -89,7 +131,7 @@ class SettingsWindow(QDialog):
 
         self.font_color_edit = QLineEdit()
         self.font_color_pick_button = QPushButton()
-        self.shadow_enabled_check = QCheckBox()
+        self.shadow_enabled_check = ToggleSwitch(accent=ACCENT_COLOR)
         self.shadow_color_edit = QLineEdit()
         self.shadow_color_pick_button = QPushButton()
         self.offset_spin = _NoWheelDoubleSpinBox()
@@ -102,10 +144,10 @@ class SettingsWindow(QDialog):
         self.layout_preset_combo = _NoWheelComboBox()
         self.context_anim_style_combo = _NoWheelComboBox()
 
-        self.always_on_top_check = QCheckBox()
-        self.start_with_windows_check = QCheckBox()
-        self.click_through_check = QCheckBox()
-        self.snap_check = QCheckBox()
+        self.always_on_top_check = ToggleSwitch(accent=ACCENT_COLOR)
+        self.start_with_windows_check = ToggleSwitch(accent=ACCENT_COLOR)
+        self.click_through_check = ToggleSwitch(accent=ACCENT_COLOR)
+        self.snap_check = ToggleSwitch(accent=ACCENT_COLOR)
 
         self._label_font = QLabel("")
         self._label_size = QLabel("")
@@ -115,31 +157,37 @@ class SettingsWindow(QDialog):
         self._label_language = QLabel("")
         self._label_mode_preset = QLabel("")
         self._label_context_animation = QLabel("")
-        self._blank_label_1 = QLabel("")
-        self._blank_label_2 = QLabel("")
-        self._blank_label_3 = QLabel("")
-        self._blank_label_4 = QLabel("")
-        self._blank_label_5 = QLabel("")
 
         font_color_row = self._build_color_row(self.font_color_edit, self.font_color_pick_button)
         shadow_color_row = self._build_color_row(self.shadow_color_edit, self.shadow_color_pick_button)
 
-        self.form = QFormLayout()
-        self.form.addRow(self._label_font, self.font_family_edit)
-        self.form.addRow(self._label_size, self.font_size_spin)
-        self.form.addRow(self._label_color_rgba, font_color_row)
-        self.form.addRow(self._blank_label_1, self.shadow_enabled_check)
-        self.form.addRow(self._label_shadow_color_rgba, shadow_color_row)
-        self.form.addRow(self._label_offset_seconds, self.offset_spin)
-        self.form.addRow(self._label_language, self.language_combo)
-        self.form.addRow(self._label_mode_preset, self.layout_preset_combo)
-        self.form.addRow(self._label_context_animation, self.context_anim_style_combo)
-        self.form.addRow(self._blank_label_5, self.start_with_windows_check)
-        self.form.addRow(self._blank_label_4, self.always_on_top_check)
-        self.form.addRow(self._blank_label_2, self.click_through_check)
-        self.form.addRow(self._blank_label_3, self.snap_check)
+        # Group the form into JaxCore-style cards instead of one flat form.
+        # Single-widget addRow() spans both columns, which replaces the old
+        # blank-label hack used to align the checkboxes.
+        self.card_appearance = QGroupBox()
+        appearance_form = QFormLayout(self.card_appearance)
+        appearance_form.addRow(self._label_font, self.font_family_edit)
+        appearance_form.addRow(self._label_size, self.font_size_spin)
+        appearance_form.addRow(self._label_color_rgba, font_color_row)
+        appearance_form.addRow(self.shadow_enabled_check)
+        appearance_form.addRow(self._label_shadow_color_rgba, shadow_color_row)
+
+        self.card_sync = QGroupBox()
+        sync_form = QFormLayout(self.card_sync)
+        sync_form.addRow(self._label_offset_seconds, self.offset_spin)
+        sync_form.addRow(self._label_language, self.language_combo)
+        sync_form.addRow(self._label_mode_preset, self.layout_preset_combo)
+        sync_form.addRow(self._label_context_animation, self.context_anim_style_combo)
+
+        self.card_behavior = QGroupBox()
+        behavior_form = QFormLayout(self.card_behavior)
+        behavior_form.addRow(self.start_with_windows_check)
+        behavior_form.addRow(self.always_on_top_check)
+        behavior_form.addRow(self.click_through_check)
+        behavior_form.addRow(self.snap_check)
 
         self.save_button = QPushButton()
+        self.save_button.setObjectName("saveButton")
         self.cancel_button = QPushButton()
         self.clear_cache_button = QPushButton()
         buttons = QHBoxLayout()
@@ -148,10 +196,57 @@ class SettingsWindow(QDialog):
         buttons.addWidget(self.save_button)
         buttons.addWidget(self.cancel_button)
 
+        # Frameless window: a custom title bar + left nav + stacked pages, all
+        # inside a single rounded "card" frame painted via QSS.
+        self.title_bar = TitleBar(self)
+        self.title_bar.minimize_clicked.connect(self.showMinimized)
+        self.title_bar.close_clicked.connect(self.close)
+
+        self.nav_list = QListWidget()
+        self.nav_list.setObjectName("navList")
+        self.nav_list.setFixedWidth(150)
+        for _ in range(3):  # texts filled in _apply_localized_texts
+            self.nav_list.addItem("")
+
+        self.pages = QStackedWidget()
+        self.pages.addWidget(self._wrap_page(self.card_appearance))
+        self.pages.addWidget(self._wrap_page(self.card_sync))
+        self.pages.addWidget(self._wrap_page(self.card_behavior))
+        self.nav_list.currentRowChanged.connect(self.pages.setCurrentIndex)
+        self.nav_list.setCurrentRow(0)
+
+        body = QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(14)
+        body.addWidget(self.nav_list)
+        body.addWidget(self.pages, 1)
+
+        content = QVBoxLayout()
+        content.setContentsMargins(18, 6, 18, 16)
+        content.setSpacing(10)
+        content.addWidget(self.validation_label)
+        content.addLayout(body, 1)
+        content.addLayout(buttons)
+
+        card_frame = QFrame()
+        card_frame.setObjectName("cardFrame")
+        frame_layout = QVBoxLayout(card_frame)
+        frame_layout.setContentsMargins(0, 0, 0, 0)
+        frame_layout.setSpacing(0)
+        frame_layout.addWidget(self.title_bar)
+        frame_layout.addLayout(content, 1)
+
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(24)
+        shadow.setOffset(0, 2)
+        shadow.setColor(QColor(0, 0, 0, 160))
+        card_frame.setGraphicsEffect(shadow)
+
         root = QVBoxLayout(self)
-        root.addWidget(self.validation_label)
-        root.addLayout(self.form)
-        root.addLayout(buttons)
+        root.setContentsMargins(16, 16, 16, 16)
+        root.addWidget(card_frame)
+
+        self.setStyleSheet(_load_stylesheet())
 
         self.save_button.clicked.connect(self._emit_save)
         self.cancel_button.clicked.connect(self.close)
@@ -165,6 +260,23 @@ class SettingsWindow(QDialog):
 
         self._apply_localized_texts()
         self.load_from_config(config)
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        if not self._did_center:
+            self._did_center = True
+            screen = self.screen()
+            if screen is not None:
+                center = screen.availableGeometry().center()
+                self.move(center - self.rect().center())
+
+    def _wrap_page(self, card: QWidget) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(card)
+        layout.addStretch(1)
+        return page
 
     def _build_color_row(self, edit: QLineEdit, button: QPushButton):
         container = QWidget(self)
@@ -263,6 +375,9 @@ class SettingsWindow(QDialog):
 
     def _apply_localized_texts(self) -> None:
         self.setWindowTitle(self._tr("window_title"))
+        self.title_bar.set_title(self._tr("window_title"))
+        for row, key in enumerate(("section_appearance", "section_sync", "section_behavior")):
+            self.nav_list.item(row).setText(self._tr(key))
         self._label_font.setText(self._tr("label_font"))
         self._label_size.setText(self._tr("label_size"))
         self._label_color_rgba.setText(self._tr("label_color_rgba"))

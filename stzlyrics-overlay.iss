@@ -33,7 +33,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=installer\output
 OutputBaseFilename=STZLyricsOverlay-Setup-1.0.0
-SetupIconFile=app\assets\logo.ico
+SetupIconFile=app\assets\stz-lyrics.ico
 SolidCompression=yes
 WizardStyle=modern
 

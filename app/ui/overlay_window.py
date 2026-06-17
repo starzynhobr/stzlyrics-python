@@ -13,7 +13,6 @@ from app.layout_presets import build_layout_render_model, normalize_context_anim
 from app.ui.color_utils import qcolor_from_rgba_hex
 from app.ui.windows_api import WinRect, set_click_through, set_window_topmost, snap_position
 
-
 logger = logging.getLogger("stzlyrics_overlay.overlay")
 
 

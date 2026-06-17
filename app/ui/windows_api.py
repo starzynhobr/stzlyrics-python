@@ -5,7 +5,6 @@ import sys
 from ctypes import wintypes
 from dataclasses import dataclass
 
-
 IS_WINDOWS = sys.platform.startswith("win")
 
 GWL_EXSTYLE = -20

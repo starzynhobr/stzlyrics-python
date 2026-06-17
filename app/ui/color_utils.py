@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import re
-from typing import Tuple
 
 from PySide6.QtGui import QColor
-
 
 _HEX_RE = re.compile(r"^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
 
 
-def parse_rgba_hex(value: str) -> Tuple[int, int, int, int]:
+def parse_rgba_hex(value: str) -> tuple[int, int, int, int]:
     """Parse #RRGGBB or #RRGGBBAA and return RGBA tuple."""
     text = (value or "").strip()
     match = _HEX_RE.fullmatch(text)
@@ -36,12 +34,7 @@ def qcolor_from_rgba_hex(value: str, fallback: str) -> QColor:
 def rgba_hex_from_qcolor(color: QColor) -> str:
     if not color.isValid():
         color = QColor(255, 255, 255, 255)
-    return "#{:02X}{:02X}{:02X}{:02X}".format(
-        color.red(),
-        color.green(),
-        color.blue(),
-        color.alpha(),
-    )
+    return f"#{color.red():02X}{color.green():02X}{color.blue():02X}{color.alpha():02X}"
 
 
 def normalize_rgba_hex(value: str, fallback: str) -> str:
@@ -49,5 +42,5 @@ def normalize_rgba_hex(value: str, fallback: str) -> str:
         r, g, b, a = parse_rgba_hex(value)
     except ValueError:
         r, g, b, a = parse_rgba_hex(fallback)
-    return "#{:02X}{:02X}{:02X}{:02X}".format(r, g, b, a)
+    return f"#{r:02X}{g:02X}{b:02X}{a:02X}"
 

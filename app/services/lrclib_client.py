@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import logging
-import re
 import random
+import re
 import time
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass
 from http.client import RemoteDisconnected
 from threading import Event
-from typing import Any, Callable
+from typing import Any
 
 import requests
 from requests.adapters import HTTPAdapter
-
 
 logger = logging.getLogger("stzlyrics_overlay.lrclib")
 
@@ -40,6 +40,15 @@ def is_likely_match(a: str, b: str) -> bool:
     if a == b:
         return True
     return a in b or b in a
+
+
+def _field_match_score(normalized_value: str, expected: str) -> int:
+    """2 for an exact normalized match, 1 for a likely (substring) match, else 0."""
+    if normalized_value == expected:
+        return 2
+    if is_likely_match(normalized_value, expected):
+        return 1
+    return 0
 
 
 @dataclass(slots=True)
@@ -262,8 +271,8 @@ class LrclibClient:
                 continue
             raw_artist = str(raw.get("artistName", ""))
             raw_title = str(raw.get("trackName", ""))
-            artist_score = 2 if normalize_for_match(raw_artist) == expected_artist else 1 if is_likely_match(normalize_for_match(raw_artist), expected_artist) else 0
-            title_score = 2 if normalize_for_match(raw_title) == expected_title else 1 if is_likely_match(normalize_for_match(raw_title), expected_title) else 0
+            artist_score = _field_match_score(normalize_for_match(raw_artist), expected_artist)
+            title_score = _field_match_score(normalize_for_match(raw_title), expected_title)
             score = (artist_score * 3) + (title_score * 4)
             if score <= 0:
                 continue

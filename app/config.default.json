@@ -27,8 +27,8 @@
   "lyrics": {
     "offset_seconds": 0.1,
     "update_interval_ms": 300,
-    "fallback_unsynced_text": "Sem letra sincronizada",
-    "language": "PT-BR"
+    "fallback_unsynced_text": "No synced lyrics",
+    "language": "EN"
   },
   "cache": {
     "max_entries": 500

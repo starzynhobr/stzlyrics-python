@@ -27,7 +27,7 @@ class AppPaths:
     cache_index_file: Path
 
     @classmethod
-    def default(cls) -> "AppPaths":
+    def default(cls) -> AppPaths:
         root = _appdata_root()
         return cls(
             root=root,
@@ -83,8 +83,8 @@ class OverlayConfig:
 class LyricsConfig:
     offset_seconds: float = 0.10
     update_interval_ms: int = 300
-    fallback_unsynced_text: str = "Sem letra sincronizada"
-    language: str = "PT-BR"
+    fallback_unsynced_text: str = "No synced lyrics"
+    language: str = "EN"
 
 
 @dataclass
@@ -135,7 +135,7 @@ class AppConfig:
         return dc_type(**kwargs)
 
     @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> "AppConfig":
+    def from_dict(cls, raw: dict[str, Any]) -> AppConfig:
         config = cls(
             font=cls._merge_dataclass(FontConfig, raw.get("font", {})),
             overlay=cls._merge_dataclass(OverlayConfig, raw.get("overlay", {})),

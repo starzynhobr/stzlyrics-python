@@ -34,7 +34,7 @@ class CacheEntry:
     title: str = ""
 
     @classmethod
-    def from_dict(cls, key: str, raw: dict[str, Any]) -> "CacheEntry":
+    def from_dict(cls, key: str, raw: dict[str, Any]) -> CacheEntry:
         return cls(
             key=key,
             file_name=str(raw.get("file_name") or raw.get("fileName")),

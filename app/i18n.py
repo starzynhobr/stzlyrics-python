@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 DEFAULT_UI_LANGUAGE = "PT-BR"
 APP_NAME = "STZLyrics Overlay"
 
@@ -195,6 +194,9 @@ UI_TEXTS: dict[str, dict[str, str]] = {
 SETTINGS_UI_TEXTS: dict[str, dict[str, str]] = {
     "PT-BR": {
         "window_title": "Configurações - STZLyrics Overlay",
+        "section_appearance": "Aparência",
+        "section_sync": "Sincronização",
+        "section_behavior": "Comportamento",
         "label_font": "Fonte",
         "label_size": "Tamanho",
         "label_color_rgba": "Cor RGBA",
@@ -226,6 +228,9 @@ SETTINGS_UI_TEXTS: dict[str, dict[str, str]] = {
     },
     "EN": {
         "window_title": "Settings - STZLyrics Overlay",
+        "section_appearance": "Appearance",
+        "section_sync": "Sync",
+        "section_behavior": "Behavior",
         "label_font": "Font",
         "label_size": "Size",
         "label_color_rgba": "Color RGBA",
@@ -257,6 +262,9 @@ SETTINGS_UI_TEXTS: dict[str, dict[str, str]] = {
     },
     "ES": {
         "window_title": "Configuración - STZLyrics Overlay",
+        "section_appearance": "Apariencia",
+        "section_sync": "Sincronización",
+        "section_behavior": "Comportamiento",
         "label_font": "Fuente",
         "label_size": "Tamaño",
         "label_color_rgba": "Color RGBA",
@@ -288,6 +296,9 @@ SETTINGS_UI_TEXTS: dict[str, dict[str, str]] = {
     },
     "IT": {
         "window_title": "Impostazioni - STZLyrics Overlay",
+        "section_appearance": "Aspetto",
+        "section_sync": "Sincronizzazione",
+        "section_behavior": "Comportamento",
         "label_font": "Carattere",
         "label_size": "Dimensione",
         "label_color_rgba": "Colore RGBA",
@@ -319,6 +330,9 @@ SETTINGS_UI_TEXTS: dict[str, dict[str, str]] = {
     },
     "DE": {
         "window_title": "Einstellungen - STZLyrics Overlay",
+        "section_appearance": "Darstellung",
+        "section_sync": "Synchronisierung",
+        "section_behavior": "Verhalten",
         "label_font": "Schriftart",
         "label_size": "Größe",
         "label_color_rgba": "RGBA-Farbe",
@@ -350,6 +364,9 @@ SETTINGS_UI_TEXTS: dict[str, dict[str, str]] = {
     },
     "FR": {
         "window_title": "Paramètres - STZLyrics Overlay",
+        "section_appearance": "Apparence",
+        "section_sync": "Synchronisation",
+        "section_behavior": "Comportement",
         "label_font": "Police",
         "label_size": "Taille",
         "label_color_rgba": "Couleur RGBA",
@@ -381,6 +398,9 @@ SETTINGS_UI_TEXTS: dict[str, dict[str, str]] = {
     },
     "JP": {
         "window_title": "設定 - STZLyrics Overlay",
+        "section_appearance": "外観",
+        "section_sync": "同期",
+        "section_behavior": "動作",
         "label_font": "フォント",
         "label_size": "サイズ",
         "label_color_rgba": "色 RGBA",
