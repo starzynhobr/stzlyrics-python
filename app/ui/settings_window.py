@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
-from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
@@ -36,36 +34,11 @@ from app.layout_presets import (
     normalize_layout_preset,
 )
 from app.ui.color_utils import normalize_rgba_hex, parse_rgba_hex, qcolor_from_rgba_hex, rgba_hex_from_qcolor
+from app.ui.theme import ACCENT_COLOR, load_stylesheet
 from app.ui.title_bar import TitleBar
 from app.ui.toggle_switch import ToggleSwitch
 
 SUPPORTED_LANGUAGES = ["EN", "PT-BR", "ES", "IT", "DE", "FR", "JP"]
-
-# JaxCore-inspired accent. Kept here so it can later be driven by the user's
-# lyric color; for Phase 1 it is a fixed token injected into the .qss.
-ACCENT_COLOR = "#ff5a1f"
-ACCENT_COLOR_HOVER = "#ff6f3d"
-
-
-def _load_stylesheet() -> str:
-    """Load the dark theme .qss and inject the accent tokens.
-
-    Returns an empty string if the file can't be found (the window still works,
-    just falls back to the default Qt look).
-    """
-    candidates: list[Path] = []
-    meipass = getattr(sys, "_MEIPASS", None)
-    if meipass:
-        candidates.append(Path(meipass) / "app" / "assets" / "style.qss")
-    candidates.append(Path(__file__).resolve().parents[1] / "assets" / "style.qss")
-    for path in candidates:
-        try:
-            if path.exists():
-                qss = path.read_text(encoding="utf-8")
-                return qss.replace("{ACCENT_HOVER}", ACCENT_COLOR_HOVER).replace("{ACCENT}", ACCENT_COLOR)
-        except Exception:
-            continue
-    return ""
 
 
 class _NoWheelSpinBox(QSpinBox):
@@ -246,7 +219,7 @@ class SettingsWindow(QDialog):
         root.setContentsMargins(16, 16, 16, 16)
         root.addWidget(card_frame)
 
-        self.setStyleSheet(_load_stylesheet())
+        self.setStyleSheet(load_stylesheet())
 
         self.save_button.clicked.connect(self._emit_save)
         self.cancel_button.clicked.connect(self.close)

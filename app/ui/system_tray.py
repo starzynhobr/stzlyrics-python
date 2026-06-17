@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
 
 from app.i18n import tr_ui
 from app.ui.app_icon import load_tray_icon
+from app.ui.theme import load_stylesheet
 
 
 class TrayController(QObject):
@@ -28,6 +29,7 @@ class TrayController(QObject):
             tray_icon = app.style().standardIcon(QStyle.SP_MediaPlay)
         self.tray = QSystemTrayIcon(tray_icon, app)
         self.menu = QMenu()
+        self.menu.setStyleSheet(load_stylesheet())
 
         self.action_settings = QAction("", self.menu)
         self.action_settings.triggered.connect(self.open_settings_requested.emit)

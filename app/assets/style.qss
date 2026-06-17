@@ -83,6 +83,31 @@ QLabel#validationLabel {
     color: #ff8080;
 }
 
+QMenu {
+    background: #141418;
+    border: 1px solid #26262d;
+    border-radius: 10px;
+    padding: 6px;
+    color: #b9b9c0;
+}
+
+QMenu::item {
+    padding: 8px 22px;
+    border-radius: 6px;
+    color: #b9b9c0;
+}
+
+QMenu::item:selected {
+    background: {ACCENT};
+    color: #1a0a03;
+}
+
+QMenu::separator {
+    height: 1px;
+    background: #26262d;
+    margin: 6px 8px;
+}
+
 QGroupBox {
     background: #141418;
     border: 1px solid #1f1f25;
