@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import ctypes
+import sys
 from dataclasses import dataclass
 
-from PySide6.QtCore import Signal
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QPointF, Qt, Signal
+from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -17,6 +19,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -25,24 +28,66 @@ from app.config import AppConfig
 from app.i18n import normalize_ui_language, tr_settings_ui
 from app.layout_presets import ContextAnimationStyle, LayoutPreset, normalize_context_animation_style, normalize_layout_preset
 from app.ui.color_utils import normalize_rgba_hex, parse_rgba_hex, qcolor_from_rgba_hex, rgba_hex_from_qcolor
+from app.ui.app_icon import load_app_icon
 
 
 SUPPORTED_LANGUAGES = ["EN", "PT-BR", "ES", "IT", "DE", "FR", "JP"]
+
+
+def _draw_chevron(widget: QWidget, center_x: float, center_y: float, upward: bool = False) -> None:
+    painter = QPainter(widget)
+    painter.setRenderHint(QPainter.Antialiasing)
+    painter.setPen(QPen(QColor("#cbd5e1"), 1.7, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+    direction = -1 if upward else 1
+    painter.drawPolyline(QPolygonF([
+        QPointF(center_x - 4, center_y - 2 * direction),
+        QPointF(center_x, center_y + 2 * direction),
+        QPointF(center_x + 4, center_y - 2 * direction),
+    ]))
+
+
+def _set_dark_windows_title_bar(hwnd: int) -> None:
+    if sys.platform != "win32":
+        return
+    try:
+        dwm = ctypes.WinDLL("dwmapi")
+        set_attribute = dwm.DwmSetWindowAttribute
+        set_attribute.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
+        set_attribute.restype = ctypes.c_long
+        for attribute, color in ((35, 0x00271811), (36, 0x00EBE7E5)):
+            value = ctypes.c_uint(color)
+            set_attribute(ctypes.c_void_p(hwnd), attribute, ctypes.byref(value), ctypes.sizeof(value))
+    except (OSError, AttributeError):
+        pass
 
 
 class _NoWheelSpinBox(QSpinBox):
     def wheelEvent(self, event) -> None:  # noqa: N802
         event.ignore()
 
+    def paintEvent(self, event) -> None:  # noqa: N802
+        super().paintEvent(event)
+        _draw_chevron(self, self.width() - 14, self.height() * 0.31, upward=True)
+        _draw_chevron(self, self.width() - 14, self.height() * 0.70)
+
 
 class _NoWheelDoubleSpinBox(QDoubleSpinBox):
     def wheelEvent(self, event) -> None:  # noqa: N802
         event.ignore()
 
+    def paintEvent(self, event) -> None:  # noqa: N802
+        super().paintEvent(event)
+        _draw_chevron(self, self.width() - 14, self.height() * 0.31, upward=True)
+        _draw_chevron(self, self.width() - 14, self.height() * 0.70)
+
 
 class _NoWheelComboBox(QComboBox):
     def wheelEvent(self, event) -> None:  # noqa: N802
         event.ignore()
+
+    def paintEvent(self, event) -> None:  # noqa: N802
+        super().paintEvent(event)
+        _draw_chevron(self, self.width() - 16, self.height() / 2)
 
 
 @dataclass(slots=True)
@@ -68,8 +113,10 @@ class SettingsWindow(QDialog):
 
     def __init__(self, config: AppConfig, parent=None) -> None:
         super().__init__(parent)
+        self.setWindowIcon(load_app_icon())
         self.setModal(False)
-        self.setMinimumWidth(420)
+        self.resize(620, 440)
+        self.setMinimumSize(550, 400)
         self._preset_font_color_drafts: dict[str, str] = {}
         self._loaded_preset_font_colors: dict[str, str] = {}
         self._loaded_default_font_color = "#FFFFFFFF"
@@ -78,10 +125,12 @@ class SettingsWindow(QDialog):
         self._loaded_preset_always_on_top: dict[str, bool] = {}
         self._loaded_default_always_on_top = True
         self._preset_switch_internal = False
+        self._save_confirmed = False
 
         self.validation_label = QLabel("")
         self.validation_label.setStyleSheet("color: #ff8080;")
         self.validation_label.setWordWrap(True)
+        self.validation_label.hide()
 
         self.font_family_edit = QLineEdit()
         self.font_size_spin = _NoWheelSpinBox()
@@ -124,24 +173,48 @@ class SettingsWindow(QDialog):
         font_color_row = self._build_color_row(self.font_color_edit, self.font_color_pick_button)
         shadow_color_row = self._build_color_row(self.shadow_color_edit, self.shadow_color_pick_button)
 
-        self.form = QFormLayout()
-        self.form.addRow(self._label_font, self.font_family_edit)
-        self.form.addRow(self._label_size, self.font_size_spin)
-        self.form.addRow(self._label_color_rgba, font_color_row)
-        self.form.addRow(self._blank_label_1, self.shadow_enabled_check)
-        self.form.addRow(self._label_shadow_color_rgba, shadow_color_row)
-        self.form.addRow(self._label_offset_seconds, self.offset_spin)
-        self.form.addRow(self._label_language, self.language_combo)
-        self.form.addRow(self._label_mode_preset, self.layout_preset_combo)
-        self.form.addRow(self._label_context_animation, self.context_anim_style_combo)
-        self.form.addRow(self._blank_label_5, self.start_with_windows_check)
-        self.form.addRow(self._blank_label_4, self.always_on_top_check)
-        self.form.addRow(self._blank_label_2, self.click_through_check)
-        self.form.addRow(self._blank_label_3, self.snap_check)
+        self.tabs = QTabWidget(self)
+        self.appearance_tab = QWidget(self)
+        self.mode_tab = QWidget(self)
+        self.general_tab = QWidget(self)
+        self.appearance_form = QFormLayout(self.appearance_tab)
+        self.mode_form = QFormLayout(self.mode_tab)
+        self.general_form = QFormLayout(self.general_tab)
+        for form in (self.appearance_form, self.mode_form, self.general_form):
+            form.setContentsMargins(24, 24, 24, 24)
+            form.setHorizontalSpacing(20)
+            form.setVerticalSpacing(16)
+
+        self.appearance_form.addRow(self._label_font, self.font_family_edit)
+        self.appearance_form.addRow(self._label_size, self.font_size_spin)
+        self.appearance_form.addRow(self._label_color_rgba, font_color_row)
+        self.appearance_form.addRow(self._blank_label_1, self.shadow_enabled_check)
+        self.appearance_form.addRow(self._label_shadow_color_rgba, shadow_color_row)
+        self.mode_form.addRow(self._label_mode_preset, self.layout_preset_combo)
+        self.mode_form.addRow(self._label_context_animation, self.context_anim_style_combo)
+        self.mode_form.addRow(self._blank_label_4, self.always_on_top_check)
+        self.mode_form.addRow(self._blank_label_2, self.click_through_check)
+        self.mode_form.addRow(self._blank_label_3, self.snap_check)
+        self.general_form.addRow(self._label_offset_seconds, self.offset_spin)
+        self.general_form.addRow(self._label_language, self.language_combo)
+        self.general_form.addRow(self._blank_label_5, self.start_with_windows_check)
+        self.tabs.addTab(self.appearance_tab, "")
+        self.tabs.addTab(self.mode_tab, "")
+        self.tabs.addTab(self.general_tab, "")
+        self.tabs.tabBar().setCursor(Qt.PointingHandCursor)
 
         self.save_button = QPushButton()
         self.cancel_button = QPushButton()
         self.clear_cache_button = QPushButton()
+        for widget in (
+            self.font_color_pick_button, self.shadow_color_pick_button,
+            self.shadow_enabled_check, self.always_on_top_check, self.start_with_windows_check,
+            self.click_through_check, self.snap_check, self.language_combo,
+            self.layout_preset_combo, self.context_anim_style_combo,
+            self.font_size_spin, self.offset_spin,
+            self.save_button, self.cancel_button, self.clear_cache_button,
+        ):
+            widget.setCursor(Qt.PointingHandCursor)
         buttons = QHBoxLayout()
         buttons.addWidget(self.clear_cache_button)
         buttons.addStretch(1)
@@ -149,9 +222,49 @@ class SettingsWindow(QDialog):
         buttons.addWidget(self.cancel_button)
 
         root = QVBoxLayout(self)
+        root.setContentsMargins(16, 16, 16, 16)
+        root.setSpacing(16)
         root.addWidget(self.validation_label)
-        root.addLayout(self.form)
+        root.addWidget(self.tabs, 1)
         root.addLayout(buttons)
+
+        self.setStyleSheet("""
+            QDialog { background: #111827; color: #e5e7eb; font-size: 13px; }
+            QLabel, QCheckBox { color: #e5e7eb; }
+            QTabWidget::pane { border: 1px solid #334155; border-radius: 10px;
+                               border-top-left-radius: 0px; background: #1e293b; }
+            QTabBar::tab { background: #172033; color: #94a3b8; padding: 11px 20px;
+                           border: 1px solid #334155; border-bottom: none;
+                           border-top-left-radius: 8px; border-top-right-radius: 8px;
+                           margin-right: 2px; }
+            QTabBar::tab:selected { background: #1e293b; color: #f8fafc;
+                                    border-top: 2px solid #60a5fa; }
+            QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+                background: #0f172a; color: #f8fafc; border: 1px solid #475569;
+                border-radius: 6px; min-height: 30px; padding: 2px 9px;
+                selection-background-color: #2563eb;
+            }
+            QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+                border: 1px solid #60a5fa;
+            }
+            QComboBox QAbstractItemView { background: #1e293b; color: #f8fafc;
+                                         selection-background-color: #2563eb; }
+            QComboBox::drop-down { width: 32px; border: none; background: transparent; }
+            QComboBox::down-arrow { image: none; width: 0px; height: 0px; }
+            QSpinBox::up-button, QSpinBox::down-button,
+            QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+                width: 26px; border: none; background: transparent;
+            }
+            QSpinBox::up-arrow, QSpinBox::down-arrow,
+            QDoubleSpinBox::up-arrow, QDoubleSpinBox::down-arrow {
+                image: none; width: 0px; height: 0px;
+            }
+            QPushButton { background: #334155; color: #f8fafc; border: 1px solid #475569;
+                          border-radius: 6px; min-height: 32px; padding: 2px 14px; }
+            QPushButton:hover { background: #475569; }
+            QPushButton:focus { border: 1px solid #93c5fd; }
+        """)
+        self.save_button.setStyleSheet("background: #2563eb; border-color: #3b82f6;")
 
         self.save_button.clicked.connect(self._emit_save)
         self.cancel_button.clicked.connect(self.close)
@@ -162,9 +275,24 @@ class SettingsWindow(QDialog):
         self.shadow_color_edit.textChanged.connect(self._clear_validation)
         self.language_combo.currentTextChanged.connect(lambda *_: self._apply_localized_texts())
         self.layout_preset_combo.currentIndexChanged.connect(self._on_layout_preset_changed)
+        for field in (self.font_family_edit, self.font_color_edit, self.shadow_color_edit):
+            field.textChanged.connect(self._mark_dirty)
+        for field in (self.font_size_spin, self.offset_spin):
+            field.valueChanged.connect(self._mark_dirty)
+        for field in (self.language_combo, self.layout_preset_combo, self.context_anim_style_combo):
+            field.currentIndexChanged.connect(self._mark_dirty)
+        for field in (
+            self.shadow_enabled_check, self.always_on_top_check, self.start_with_windows_check,
+            self.click_through_check, self.snap_check,
+        ):
+            field.toggled.connect(self._mark_dirty)
 
         self._apply_localized_texts()
         self.load_from_config(config)
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        _set_dark_windows_title_bar(int(self.winId()))
 
     def _build_color_row(self, edit: QLineEdit, button: QPushButton):
         container = QWidget(self)
@@ -263,11 +391,17 @@ class SettingsWindow(QDialog):
 
     def _apply_localized_texts(self) -> None:
         self.setWindowTitle(self._tr("window_title"))
+        self.tabs.setTabText(0, self._tr("tab_appearance"))
+        self.tabs.setTabText(1, self._tr("tab_mode"))
+        self.tabs.setTabText(2, self._tr("tab_general"))
         self._label_font.setText(self._tr("label_font"))
         self._label_size.setText(self._tr("label_size"))
         self._label_color_rgba.setText(self._tr("label_color_rgba"))
         self._label_shadow_color_rgba.setText(self._tr("label_shadow_color_rgba"))
         self._label_offset_seconds.setText(self._tr("label_offset_seconds"))
+        offset_tooltip = self._tr("offset_tooltip")
+        self._label_offset_seconds.setToolTip(offset_tooltip)
+        self.offset_spin.setToolTip(offset_tooltip)
         self._label_language.setText(self._tr("label_language"))
         self._label_mode_preset.setText(self._tr("label_mode_preset"))
         self._label_context_animation.setText(self._tr("label_context_animation"))
@@ -279,7 +413,7 @@ class SettingsWindow(QDialog):
         self.click_through_check.setText(self._tr("click_through"))
         self.snap_check.setText(self._tr("snap_to_taskbar"))
         self.clear_cache_button.setText(self._tr("clear_local_cache"))
-        self.save_button.setText(self._tr("save"))
+        self.save_button.setText(self._tr("saved" if self._save_confirmed else "save"))
         self.cancel_button.setText(self._tr("close"))
         self._refresh_layout_preset_combo_items()
         self._refresh_context_anim_style_combo_items()
@@ -287,6 +421,16 @@ class SettingsWindow(QDialog):
 
     def _clear_validation(self) -> None:
         self.validation_label.setText("")
+        self.validation_label.hide()
+
+    def _mark_dirty(self, *_args) -> None:
+        if self._save_confirmed:
+            self._save_confirmed = False
+            self.save_button.setText(self._tr("save"))
+
+    def mark_saved(self) -> None:
+        self._save_confirmed = True
+        self.save_button.setText(self._tr("saved"))
 
     def _pick_color_into(self, target_edit: QLineEdit) -> None:
         initial = qcolor_from_rgba_hex(target_edit.text().strip() or "#FFFFFFFF", "#FFFFFFFF")
@@ -362,6 +506,8 @@ class SettingsWindow(QDialog):
         self.start_with_windows_check.setChecked(bool(getattr(config.overlay, "start_with_windows", False)))
         self.click_through_check.setChecked(bool(config.overlay.click_through))
         self.snap_check.setChecked(bool(config.overlay.snap_to_taskbar))
+        self._save_confirmed = False
+        self.save_button.setText(self._tr("save"))
 
     def _emit_save(self) -> None:
         self._stash_current_preset_font_color()
@@ -372,9 +518,11 @@ class SettingsWindow(QDialog):
         shadow_color = self._parse_color(shadow_color_raw)
         if font_color is None:
             self.validation_label.setText(self._tr("invalid_text_color"))
+            self.validation_label.show()
             return
         if shadow_color is None:
             self.validation_label.setText(self._tr("invalid_shadow_color"))
+            self.validation_label.show()
             return
 
         values = SettingsValues(

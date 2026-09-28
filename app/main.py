@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import inspect
 import os
 import sys
@@ -14,6 +15,7 @@ from app.logging_utils import setup_logging
 from app.services.cache import LyricsCache
 from app.services.lrclib_client import LrclibClient
 from app.services.media_session import MediaSessionService
+from app.single_instance import acquire_single_instance
 from app.ui.app_icon import load_app_icon
 from app.ui.overlay_window import OverlayWindow
 from app.ui.system_tray import TrayController
@@ -32,6 +34,18 @@ def _parse_args(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
 
 def main() -> int:
     args, qt_args = _parse_args(sys.argv[1:])
+    instance = acquire_single_instance()
+    if instance is None:
+        return 0
+    try:
+        return _run_app(args, qt_args)
+    finally:
+        instance.close()
+
+
+def _run_app(args: argparse.Namespace, qt_args: list[str]) -> int:
+    if sys.platform == "win32":
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("STZLABS.STZLyricsOverlay")
     app = QApplication([sys.argv[0], *qt_args])
     app.setQuitOnLastWindowClosed(False)
     app_icon = load_app_icon()

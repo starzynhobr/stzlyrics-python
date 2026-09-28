@@ -377,7 +377,11 @@ class OverlayWindow(QWidget):
         self.move(x, y)
 
     def restore_position(self) -> None:
-        screen = QGuiApplication.primaryScreen()
+        preset = getattr(self._config.overlay, "layout_preset", "")
+        preferred = self._config.preferred_screen_for_preset(preset)
+        screen = next((s for s in QGuiApplication.screens() if s.name() == preferred), None)
+        if screen is None:
+            screen = QGuiApplication.primaryScreen()
         if screen is None:
             return
         geo = screen.geometry()
@@ -387,13 +391,15 @@ class OverlayWindow(QWidget):
             scale_percent,
             geo.width(),
             geo.height(),
-            layout_preset=getattr(self._config.overlay, "layout_preset", ""),
+            layout_preset=preset,
         )
         if saved is None:
-            self.move_default_near_taskbar()
+            avail = screen.availableGeometry()
+            self.move(avail.left() + max(0, (avail.width() - self.width()) // 2),
+                      avail.bottom() - self.height() - 2)
             return
         self.move(saved[0], saved[1])
-        self._clamp_to_visible()
+        self._clamp_to_visible(screen)
 
     def _current_screen(self):
         center = self.frameGeometry().center()
@@ -405,8 +411,8 @@ class OverlayWindow(QWidget):
         except Exception:
             return 100
 
-    def _clamp_to_visible(self) -> None:
-        screen = self._current_screen()
+    def _clamp_to_visible(self, screen=None) -> None:
+        screen = screen or self._current_screen()
         if screen is None:
             return
         # Clamp to the monitor while allowing controlled overflow equal to the

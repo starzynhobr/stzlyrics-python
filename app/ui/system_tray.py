@@ -6,7 +6,7 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
 
-from app.i18n import tr_ui
+from app.i18n import tr_settings_ui, tr_ui
 from app.ui.app_icon import load_tray_icon
 
 
@@ -17,6 +17,7 @@ class TrayController(QObject):
     reload_config_requested = Signal()
     toggle_visible_requested = Signal()
     quit_requested = Signal()
+    layout_preset_requested = Signal(str)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -28,6 +29,16 @@ class TrayController(QObject):
             tray_icon = app.style().standardIcon(QStyle.SP_MediaPlay)
         self.tray = QSystemTrayIcon(tray_icon, app)
         self.menu = QMenu()
+
+        self.preset_menu = self.menu.addMenu("")
+        self.preset_actions = {}
+        for preset in ("minimal", "detailed", "context_2_2"):
+            action = QAction("", self.preset_menu)
+            action.setCheckable(True)
+            action.triggered.connect(lambda checked=False, value=preset: self.layout_preset_requested.emit(value))
+            self.preset_menu.addAction(action)
+            self.preset_actions[preset] = action
+        self.menu.addSeparator()
 
         self.action_settings = QAction("", self.menu)
         self.action_settings.triggered.connect(self.open_settings_requested.emit)
@@ -68,10 +79,18 @@ class TrayController(QObject):
     def set_language(self, language_code: str) -> None:
         self._language_code = language_code or self._language_code
         self.action_settings.setText(tr_ui(self._language_code, "tray_settings"))
+        self.preset_menu.setTitle(tr_settings_ui(self._language_code, "label_mode_preset"))
+        for preset, key in (("minimal", "preset_minimal"), ("detailed", "preset_detailed"),
+                            ("context_2_2", "preset_context_2_2")):
+            self.preset_actions[preset].setText(tr_settings_ui(self._language_code, key))
         self.action_open_cache.setText(tr_ui(self._language_code, "tray_open_cache"))
         self.action_reload_current_lyrics.setText(tr_ui(self._language_code, "tray_reload_current_lyrics"))
         self.action_reload_config.setText(tr_ui(self._language_code, "tray_reload_config"))
         self.action_quit.setText(tr_ui(self._language_code, "tray_quit"))
+
+    def set_layout_preset(self, preset: str) -> None:
+        for value, action in self.preset_actions.items():
+            action.setChecked(value == preset)
 
     def open_folder(self, folder: str) -> None:
         if os.path.isdir(folder) and hasattr(os, "startfile"):

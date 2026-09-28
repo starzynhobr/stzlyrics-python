@@ -13,6 +13,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtWidgets import QApplication
 
 from app.config import AppConfig, AppPaths, load_config, save_config
+from app.layout_presets import normalize_layout_preset
 from app.i18n import tr_ui
 from app.services.cache import LyricsCache, build_track_cache_key
 from app.services.lrclib_client import LrclibClient, LrclibResult
@@ -399,9 +400,12 @@ class AppController(QObject):
         self.tray.reload_current_lyrics_requested.connect(self.force_reload_current_track)
         self.tray.reload_config_requested.connect(self._reload_config_from_disk)
         self.tray.toggle_visible_requested.connect(self._toggle_overlay_visibility)
+        self.tray.layout_preset_requested.connect(self._switch_layout_preset)
         app = QApplication.instance()
         if app is not None:
             self.tray.quit_requested.connect(app.quit)
+            app.screenAdded.connect(self._on_screen_added)
+            app.screenRemoved.connect(self._on_screen_removed)
 
         self._apply_clock_config()
         self._apply_ui_language()
@@ -414,6 +418,25 @@ class AppController(QObject):
 
     def _apply_ui_language(self) -> None:
         self.tray.set_language(self._ui_language())
+        self.tray.set_layout_preset(self.config.overlay.layout_preset)
+
+    def _on_screen_added(self, _screen) -> None:
+        QTimer.singleShot(500, self.overlay.restore_position)
+
+    def _on_screen_removed(self, _screen) -> None:
+        QTimer.singleShot(500, self.overlay.restore_position)
+
+    def _switch_layout_preset(self, preset: str) -> None:
+        preset = normalize_layout_preset(preset)
+        if preset == self.config.overlay.layout_preset:
+            return
+        self.config.overlay.layout_preset = preset
+        save_config(self.paths, self.config)
+        self.overlay.apply_config(self.config)
+        self.overlay.restore_position()
+        self.tray.set_layout_preset(preset)
+        if self._settings_window is not None:
+            self._settings_window.load_from_config(self.config)
 
     def start(self) -> None:
         self._started = True
@@ -1192,7 +1215,6 @@ class AppController(QObject):
     def _save_from_settings(self, payload_obj: object) -> None:
         if not isinstance(payload_obj, SettingsValues):
             return
-        previous_preset = str(getattr(self.config.overlay, "layout_preset", "") or "")
         startup_applied_state = self._apply_startup_setting(payload_obj.start_with_windows)
         self.config.font.family = payload_obj.font_family
         self.config.font.size = int(payload_obj.font_size)
@@ -1217,8 +1239,10 @@ class AppController(QObject):
         save_config(self.paths, self.config)
         self._apply_ui_language()
         self.overlay.apply_config(self.config)
-        if str(self.config.overlay.layout_preset or "") != previous_preset:
-            self.overlay.restore_position()
+        self.overlay.restore_position()
+        self.tray.set_layout_preset(self.config.overlay.layout_preset)
+        if self._settings_window is not None:
+            self._settings_window.mark_saved()
         self.overlay.set_status_hint(self._tr("status_config_saved"))
         QTimer.singleShot(1500, lambda: self.overlay.set_status_hint(""))
 

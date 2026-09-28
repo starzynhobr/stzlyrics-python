@@ -2,8 +2,8 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "STZ Lyrics Overlay"
-#define MyAppVersion "1.0.0"
-#define MyAppPublisher "STZ LABS"
+#define MyAppVersion "1.2.0"
+#define MyAppPublisher "STZ Labs"
 #define MyAppURL "https://www.stzlabs.com"
 #define MyAppExeName "STZLyricsOverlay.exe"
 
@@ -32,7 +32,7 @@ DisableProgramGroupPage=yes
 ; Remove the following line to run in administrative install mode (install for all users).
 PrivilegesRequired=lowest
 OutputDir=installer\output
-OutputBaseFilename=STZLyricsOverlay-Setup-1.0.0
+OutputBaseFilename=STZLyricsOverlay-Setup-{#MyAppVersion}
 SetupIconFile=app\assets\logo.ico
 SolidCompression=yes
 WizardStyle=modern
@@ -47,6 +47,10 @@ Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+
+[InstallDelete]
+; _internal belongs to the PyInstaller bundle. Remove obsolete DLLs during upgrades.
+Type: filesandordirs; Name: "{app}\_internal"
 
 [Files]
 Source: "dist\STZLyricsOverlay\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion

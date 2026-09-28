@@ -32,7 +32,7 @@ def app_icon_path() -> Path | None:
 
 
 def tray_icon_path() -> Path | None:
-    return _first_existing(_asset_candidates(["logo_tray.ico", "logo64-64.ico", "logo.ico"]))
+    return _first_existing(_asset_candidates(["logo.ico"]))
 
 
 def load_app_icon() -> QIcon:

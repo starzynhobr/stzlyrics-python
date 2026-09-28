@@ -77,6 +77,7 @@ class OverlayConfig:
     start_with_windows: bool = False
     layout_preset: str = "detailed"
     positions: dict[str, dict[str, int]] = field(default_factory=dict)
+    preferred_screens: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -178,6 +179,17 @@ class AppConfig:
         preset = normalize_layout_preset(layout_preset)
         self.overlay.always_on_top_by_preset[preset] = bool(enabled)
 
+    def preferred_screen_for_preset(self, layout_preset: str | None) -> str | None:
+        preset = normalize_layout_preset(layout_preset)
+        preferred = self.overlay.preferred_screens.get(preset)
+        if preferred:
+            return preferred
+        # Existing installations have per-screen positions but no preference.
+        for key in reversed(list(self.overlay.positions)):
+            if key.endswith(f"|{preset}"):
+                return key.split("|", 1)[0]
+        return None
+
     def position_key(
         self,
         screen_name: str,
@@ -238,6 +250,8 @@ class AppConfig:
             layout_preset=layout_preset,
         )
         self.overlay.positions[key] = {"x": int(x), "y": int(y)}
+        if layout_preset:
+            self.overlay.preferred_screens[normalize_layout_preset(layout_preset)] = screen_name
 
 
 def default_config() -> AppConfig:

@@ -110,6 +110,7 @@ Main configuration areas:
 
 ## Tray (Quick Actions)
 
+- Switch directly between Minimal, Detailed, and Context (2+2) from the Mode / Preset submenu
 - Show/Hide overlay
 - Toggle click-through
 - Toggle snap
@@ -117,6 +118,8 @@ Main configuration areas:
 - Open cache folder
 - Reload config
 - Exit
+
+Each mode remembers the monitor and position where it was last dragged. If that monitor is unavailable at startup, the overlay appears on the primary monitor temporarily and returns when the preferred monitor reconnects. To choose a new monitor for a mode, switch to that mode and drag the overlay there once.
 
 ## Tests (Parser / Sync)
 
@@ -135,6 +138,8 @@ pytest
 ## Releases
 
 You can run this project from source during development, but the intended end-user distribution is a Windows `.exe` build (e.g. PyInstaller) and an installer package (e.g. Inno Setup).
+
+For a Windows build, install `pip install -e ".[build]"` in `.venv`, install Inno Setup 7, and run `powershell -ExecutionPolicy Bypass -File build-windows.ps1`. The build embeds `app/assets/logo.ico` as the executable icon and runtime tray/window icon; the Inno script uses the same icon for Setup. Use `-SkipInstaller` to build only the application. The build limits `PATH` while running PyInstaller so unrelated ICU DLLs cannot enter the Qt bundle.
 
 ## ⚖️ Licensing (Dual Licensing)
 
