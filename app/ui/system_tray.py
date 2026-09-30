@@ -12,6 +12,7 @@ from app.ui.app_icon import load_tray_icon
 
 class TrayController(QObject):
     open_settings_requested = Signal()
+    open_welcome_requested = Signal()
     open_cache_requested = Signal()
     reload_current_lyrics_requested = Signal()
     reload_config_requested = Signal()
@@ -43,6 +44,10 @@ class TrayController(QObject):
         self.action_settings = QAction("", self.menu)
         self.action_settings.triggered.connect(self.open_settings_requested.emit)
         self.menu.addAction(self.action_settings)
+
+        self.action_welcome = QAction("", self.menu)
+        self.action_welcome.triggered.connect(self.open_welcome_requested.emit)
+        self.menu.addAction(self.action_welcome)
 
         self.action_open_cache = QAction("", self.menu)
         self.action_open_cache.triggered.connect(self.open_cache_requested.emit)
@@ -79,6 +84,7 @@ class TrayController(QObject):
     def set_language(self, language_code: str) -> None:
         self._language_code = language_code or self._language_code
         self.action_settings.setText(tr_ui(self._language_code, "tray_settings"))
+        self.action_welcome.setText(tr_ui(self._language_code, "tray_welcome"))
         self.preset_menu.setTitle(tr_settings_ui(self._language_code, "label_mode_preset"))
         for preset, key in (("minimal", "preset_minimal"), ("detailed", "preset_detailed"),
                             ("context_2_2", "preset_context_2_2")):

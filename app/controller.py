@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import copy
 import logging
 import os
 import re
@@ -27,6 +28,7 @@ from app.services.windows_startup import is_startup_enabled, is_supported as sta
 from app.ui.overlay_window import OverlayWindow, PositionPayload
 from app.ui.settings_window import SettingsValues, SettingsWindow
 from app.ui.system_tray import TrayController
+from app.ui.welcome_window import WelcomeWindow
 
 if "--debug" in sys.argv:
     print(f"[IMPORT_AUDIT] controller.__file__={__file__}", file=sys.stderr)
@@ -364,6 +366,7 @@ class AppController(QObject):
         self._queued_fetch: _QueuedFetch | None = None
         self._pending_track_candidate: _PendingTrackCandidate | None = None
         self._settings_window: SettingsWindow | None = None
+        self._welcome_window: WelcomeWindow | None = None
 
         self._pending_fallback_track_seq = -1
         self._pending_fallback_text = ""
@@ -396,6 +399,7 @@ class AppController(QObject):
         self.media_service.error.connect(self._on_media_error)
 
         self.tray.open_settings_requested.connect(self._open_settings_window)
+        self.tray.open_welcome_requested.connect(self._open_welcome_window)
         self.tray.open_cache_requested.connect(self._open_cache_folder)
         self.tray.reload_current_lyrics_requested.connect(self.force_reload_current_track)
         self.tray.reload_config_requested.connect(self._reload_config_from_disk)
@@ -449,6 +453,8 @@ class AppController(QObject):
         self.overlay.set_lyric_text(self._tr("overlay_waiting_music"))
         self._ui_clock_timer.start()
         self.media_service.start()
+        if not self.config.onboarding_completed:
+            self._open_welcome_window()
 
     def _total_attempts(self) -> int:
         return max(1, int(self.config.network.lrclib_max_retries) + 1)
@@ -459,6 +465,8 @@ class AppController(QObject):
         self._transient_retry_timer.stop()
         self._cancel_active_fetch()
         self.media_service.stop()
+        if self._welcome_window is not None:
+            self._welcome_window.close()
         self.executor.shutdown(wait=False, cancel_futures=True)
         if self._settings_window is not None:
             self._settings_window.close()
@@ -1193,6 +1201,38 @@ class AppController(QObject):
             soft_correction_gain=float(getattr(self.config.clock, "soft_correction_gain", 0.15)),
             soft_correction_clamp_s=float(getattr(self.config.clock, "soft_correction_clamp_s", 0.8)),
         )
+
+    def _open_welcome_window(self) -> None:
+        if self._welcome_window is None or not self._welcome_window.isVisible():
+            if self._welcome_window is not None:
+                self._welcome_window.deleteLater()
+            self._welcome_window = WelcomeWindow(self.config)
+            self._welcome_window.start_requested.connect(self._complete_welcome)
+            self._welcome_window.settings_requested.connect(self._open_settings_window)
+        self._welcome_window.show()
+        self._welcome_window.raise_()
+        self._welcome_window.activateWindow()
+
+    def _complete_welcome(self, preset: str) -> None:
+        candidate = copy.deepcopy(self.config)
+        candidate.overlay.layout_preset = normalize_layout_preset(preset)
+        candidate.onboarding_completed = True
+        try:
+            save_config(self.paths, candidate)
+        except OSError:
+            self.logger.exception("Could not save welcome preferences")
+            if self._welcome_window is not None:
+                self._welcome_window.show_save_error()
+            return
+        self.config.overlay.layout_preset = candidate.overlay.layout_preset
+        self.config.onboarding_completed = True
+        self.overlay.apply_config(self.config)
+        self.overlay.restore_position()
+        self.tray.set_layout_preset(self.config.overlay.layout_preset)
+        if self._settings_window is not None:
+            self._settings_window.load_from_config(self.config)
+        if self._welcome_window is not None:
+            self._welcome_window.accept()
 
     def _open_settings_window(self) -> None:
         self._sync_startup_setting_from_system()

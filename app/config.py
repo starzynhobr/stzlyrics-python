@@ -119,6 +119,7 @@ class AppConfig:
     cache: CacheConfig = field(default_factory=CacheConfig)
     network: NetworkConfig = field(default_factory=NetworkConfig)
     clock: ClockConfig = field(default_factory=ClockConfig)
+    onboarding_completed: bool = False
 
     @staticmethod
     def _merge_dataclass(dc_type, raw: dict[str, Any]):
@@ -144,6 +145,7 @@ class AppConfig:
             cache=cls._merge_dataclass(CacheConfig, raw.get("cache", {})),
             network=cls._merge_dataclass(NetworkConfig, raw.get("network", {})),
             clock=cls._merge_dataclass(ClockConfig, raw.get("clock", {})),
+            onboarding_completed=raw.get("onboarding_completed") is True,
         )
         config.overlay.layout_preset = normalize_layout_preset(config.overlay.layout_preset)
         config.overlay.context_animation_style = normalize_context_animation_style(

@@ -11,6 +11,7 @@ UI_TEXTS: dict[str, dict[str, str]] = {
     "PT-BR": {
         "app_name": APP_NAME,
         "tray_settings": "Configurações...",
+        "tray_welcome": "Boas-vindas...",
         "tray_open_cache": "Abrir pasta do cache",
         "tray_reload_current_lyrics": "Recarregar Lyrics Atual",
         "tray_reload_config": "Recarregar config",
@@ -37,6 +38,7 @@ UI_TEXTS: dict[str, dict[str, str]] = {
     "EN": {
         "app_name": APP_NAME,
         "tray_settings": "Settings...",
+        "tray_welcome": "Welcome...",
         "tray_open_cache": "Open cache folder",
         "tray_reload_current_lyrics": "Reload Current Lyrics",
         "tray_reload_config": "Reload config",
@@ -63,6 +65,7 @@ UI_TEXTS: dict[str, dict[str, str]] = {
     "ES": {
         "app_name": APP_NAME,
         "tray_settings": "Configuración...",
+        "tray_welcome": "Bienvenida...",
         "tray_open_cache": "Abrir carpeta de caché",
         "tray_reload_current_lyrics": "Recargar letra actual",
         "tray_reload_config": "Recargar config",
@@ -89,6 +92,7 @@ UI_TEXTS: dict[str, dict[str, str]] = {
     "IT": {
         "app_name": APP_NAME,
         "tray_settings": "Impostazioni...",
+        "tray_welcome": "Benvenuto...",
         "tray_open_cache": "Apri cartella cache",
         "tray_reload_current_lyrics": "Ricarica testo corrente",
         "tray_reload_config": "Ricarica config",
@@ -115,6 +119,7 @@ UI_TEXTS: dict[str, dict[str, str]] = {
     "DE": {
         "app_name": APP_NAME,
         "tray_settings": "Einstellungen...",
+        "tray_welcome": "Willkommen...",
         "tray_open_cache": "Cache-Ordner öffnen",
         "tray_reload_current_lyrics": "Aktuellen Liedtext neu laden",
         "tray_reload_config": "Config neu laden",
@@ -141,6 +146,7 @@ UI_TEXTS: dict[str, dict[str, str]] = {
     "FR": {
         "app_name": APP_NAME,
         "tray_settings": "Paramètres...",
+        "tray_welcome": "Bienvenue...",
         "tray_open_cache": "Ouvrir le dossier cache",
         "tray_reload_current_lyrics": "Recharger les paroles actuelles",
         "tray_reload_config": "Recharger la config",
@@ -167,6 +173,7 @@ UI_TEXTS: dict[str, dict[str, str]] = {
     "JP": {
         "app_name": APP_NAME,
         "tray_settings": "設定...",
+        "tray_welcome": "ようこそ...",
         "tray_open_cache": "キャッシュフォルダを開く",
         "tray_reload_current_lyrics": "現在の歌詞を再読み込み",
         "tray_reload_config": "設定を再読み込み",

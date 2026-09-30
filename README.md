@@ -67,6 +67,13 @@ pip install -e .
 
 ## Run
 
+On Windows, double-click `start.bat` to launch with the project's local `.venv`.
+The launcher creates the environment and installs dependencies when it is absent.
+
+The welcome screen previews the three overlay styles and explains how to get started.
+Choose **Get started** to save your style and complete the introduction. Until then,
+it appears at startup. You can reopen it anytime from **Welcome...** in the tray menu.
+
 ```powershell
 python -m app.main
 ```
